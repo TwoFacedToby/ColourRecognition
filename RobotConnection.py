@@ -1,8 +1,5 @@
 import paramiko
 import time
-from ImageRec import render
-from MovementController import next_command_from_state
-
 
 def create_ssh_client():
     server = '192.168.230.29'

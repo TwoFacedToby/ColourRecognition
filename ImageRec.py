@@ -4,21 +4,8 @@ from enum import Enum
 
 # Capturing video through webcam
 # cam = cv2.VideoCapture(0)
-cam = cv2.VideoCapture("TrackVideos/Position1_Shacky.mp4")
+cam = cv2.VideoCapture("TrackVideos/Position1_normal.mp4")
 
-
-ballsState = []
-wallsState = []
-smallGoalPos = []
-bigGoalPos = []
-robotBack = []
-robotFront = []
-
-
-class Mask:
-    def __init__(self, value, type):
-        self.value = value
-        self.type = type
 
 
 class State:
@@ -57,23 +44,50 @@ class Type(Enum):
 
 
 class Color(Enum):
-    WHITE = [np.array([0, 0, 200], np.uint8), np.array([180, 25, 255], np.uint8)]  # Range of White
-    ORANGE = [np.array([10, 80, 180], np.uint8), np.array([14, 170, 200], np.uint8)]  # Range of Orange
-    RED = [np.array([0, 50, 20], np.uint8), np.array([20, 100, 200], np.uint8)]  # Range of Red
-    BROWN = [np.array([10, 30, 20], np.uint8), np.array([60, 100, 140], np.uint8)]  # Range of Brown
-    GREEN = [np.array([25, 50, 70], np.uint8), np.array([50, 200, 200], np.uint8)]  # Range of Green
-    BLUE = [np.array([100, 100, 100], np.uint8), np.array([130, 200, 200], np.uint8)]
+    WHITE = 0
+    ORANGE = 1
+    RED = 2
+    BROWN = 3
+    GREEN = 4
+    BLUE = 5
 
 
-def recognise_state_and_draw(image, mask):
-    contours, hierarchy = cv2.findContours(mask.value, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    color = mask.type
+ballsState = []
+wallsState = []
+smallGoalPos = []
+bigGoalPos = []
+robot_state = Robot(0, 0, 0, 0)
+walls = []
+
+def obstacle_lines(image):
+    # convert to grayscale
+    grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # perform edge detection
+    edges = cv2.Canny(grayscale, 20, 100)
+    # detect lines in the image using hough lines technique
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 60, np.array([]), 50, 5)
+    # iterate over the output lines and draw them
+    if len(walls) < 100:
+        walls.append(lines)
+    else:
+        walls.pop(0)
+        walls.append(lines)
+    for wall in walls:
+        for line in wall:
+            for x1, y1, x2, y2 in line:
+                cv2.line(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                cv2.line(edges, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
+
+def recognise_state_and_draw(image, mask, types):
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    color = types.value
     for pic, contour in enumerate(contours):
         area = cv2.contourArea(contour)
         x, y, w, h = cv2.boundingRect(contour)
         show = "none"
 
-        match type:
+        match types:
             case Type.Wall:
                 if 10 < area < 300:
                     show = "square"
@@ -102,57 +116,91 @@ def recognise_state_and_draw(image, mask):
 
             case Type.RobotBack:
                 if 120 < area < 1500:
-                    robotBack.clear()
-                    robotBack.append([x, y])
+                    robot_state.back_x = x
+                    robot_state.back_y = y
                     show = "square"
             case Type.RobotFront:
                 if 120 < area < 1500:
-                    robotFront.clear()
-                    robotFront.append([x, y])
+                    robot_state.front_x = x
+                    robot_state.front_y = y
                     show = "square"
         if show == "circle":
-            cv2.circle(image, (x, y), 15, (color[0], color[1], color[2]), 2)
+            cv2.circle(image, (x + 15, y + 15), 15, (color[0], color[1], color[2]), 2)
         elif show == "square":
             cv2.rectangle(image, (x, y), (x + w, y + h), (color[0], color[1], color[2]), 2)
 
 
 def mask_from_color(color, image_hsv, clean_image):
-    return cv2.dilate(cv2.inRange(image_hsv, color[0], color[1]), clean_image)
+    color_low = []
+    color_high = []
+    match color:
+        case Color.WHITE:
+            color_low = np.array([0, 0, 200], np.uint8)
+            color_high = np.array([180, 25, 255], np.uint8)
+        case Color.ORANGE:
+            color_low = np.array([10, 80, 180], np.uint8)
+            color_high = np.array([14, 170, 200], np.uint8)
+        case Color.RED:
+            color_low = np.array([0, 50, 20], np.uint8)
+            color_high = np.array([20, 100, 200], np.uint8)
+        case Color.BROWN:
+            color_low = np.array([10, 30, 20], np.uint8)
+            color_high = np.array([60, 100, 140], np.uint8)
+        case Color.GREEN:
+            color_low = np.array([25, 50, 70], np.uint8)
+            color_high = np.array([50, 200, 200], np.uint8)
+        case Color.BLUE:
+            color_low = np.array([100, 100, 100], np.uint8)
+            color_high = np.array([130, 200, 200], np.uint8)
+    return cv2.dilate(cv2.inRange(image_hsv, color_low, color_high), clean_image)
+
+
+def get_types():
+    return [Type.Ball,
+            Type.OrangeBall,
+            Type.Wall,
+            Type.Wall,
+            Type.BigGreenGoal,
+            Type.SmallBlueGoal]
 
 
 def get_masks(image_hsv):
     clean_image = np.ones((5, 5), "uint8")
-    masks = [Mask(value=mask_from_color(Color.WHITE.value, image_hsv, clean_image), type=Type.Ball),
-             Mask(value=mask_from_color(Color.ORANGE.value, image_hsv, clean_image), type=Type.OrangeBall),
-             Mask(value=mask_from_color(Color.RED.value, image_hsv, clean_image), type=Type.Wall),
-             Mask(value=mask_from_color(Color.BROWN.value, image_hsv, clean_image), type=Type.Wall),
-             Mask(value=mask_from_color(Color.GREEN.value, image_hsv, clean_image), type=Type.BigGreenGoal),
-             Mask(value=mask_from_color(Color.BLUE.value, image_hsv, clean_image), type=Type.SmallBlueGoal)]
-    return masks
+    return [mask_from_color(Color.WHITE, image_hsv, clean_image),
+            mask_from_color(Color.ORANGE, image_hsv, clean_image),
+            mask_from_color(Color.RED, image_hsv, clean_image),
+            mask_from_color(Color.BROWN, image_hsv, clean_image),
+            mask_from_color(Color.GREEN, image_hsv, clean_image),
+            mask_from_color(Color.BLUE, image_hsv, clean_image)]
 
 
-def render():
-    _, image = cam.read()  # Reading Images
-    image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)  # Convert the imageFrame in BGR to HSV
-    masks = get_masks(image_hsv)
+def reset():
     ballsState.clear()
+    robot_state = Robot(0, 0, 0, 0)
 
-    for i in range(len(masks)):
-        recognise_state_and_draw(image, masks[i])
 
-    robot_location = Robot(front_x=600, front_y=200, back_x=600, back_y=300)  # TODO - move this to recognise_state
+def draw_robot(image):
     cv2.rectangle(image, (600, 250), (600 + 50, 250 + 50),
                   (Type.RobotFront.value[0], Type.RobotFront.value[1], Type.RobotFront.value[2]), 2)
 
-    ## End program
-    cv2.imshow("Multiple Color Detection in Real-TIme", image)
-    if cv2.waitKey(10) & 0xFF == ord('q'):
-        # cap.release()
-        cv2.destroyAllWindows()
 
+def render():
+    reset()
+    _, image = cam.read()  # Reading Images
+    image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)  # Convert the imageFrame in BGR to HSV
+    masks = get_masks(image_hsv)
+    types = get_types()
+    for i in range(len(masks)):
+        recognise_state_and_draw(image, masks[i], types[i])
+    obstacle_lines(image)
+    draw_robot(image)
+
+    cv2.imshow("Multiple Color Detection in Real-TIme", image)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
     return State(
         balls=ballsState,
         corners=wallsState,
-        robot=robot_location,
+        robot=robot_state,
         small_goal_pos=smallGoalPos,
         big_goal_pos=bigGoalPos)

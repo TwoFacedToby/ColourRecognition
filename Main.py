@@ -1,19 +1,20 @@
 import keyboard
 
-from ImageRec import render
+from ImageRec import *
 from MovementController import next_command_from_state
 from RobotConnection import create_ssh_client, create_shell
 
 coolDownTime = 10
 
-
+isConnected = False
 def main():
     ssh_client = None
     shell = None
 
     try:
-        ssh_client = create_ssh_client()
-        shell = create_shell(ssh_client)
+        if isConnected:
+            ssh_client = create_ssh_client()
+            shell = create_shell(ssh_client)
     except Exception as e:
         print(e)
 
