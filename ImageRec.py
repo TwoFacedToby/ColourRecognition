@@ -7,7 +7,6 @@ from enum import Enum
 cam = cv2.VideoCapture("TrackVideos/Position1_normal.mp4")
 
 
-
 class State:
     def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos):
         self.balls = balls
@@ -18,29 +17,27 @@ class State:
 
 
 class Ball:
-    def __init__(self, x, y, isOrange):
+    def __init__(self, x, y, is_orange):
         self.x = x
         self.y = y
-        self.isOrange = isOrange
+        self.isOrange = is_orange
 
 
 class Robot:
-    def __init__(self, front_x, front_y, back_x, back_y):
-        self.front_x = front_x
-        self.front_y = front_y
-        self.back_x = back_x
-        self.back_y = back_y
+    def __init__(self, pos_1, pos_2, pos_3):
+        self.pos_1 = pos_1
+        self.pos_2 = pos_2
+        self.pos_3 = pos_3
 
 
 class Type(Enum):
+    Robot = [255, 255, 0]
     Wall = [0, 0, 0]
     Ball = [255, 255, 0]
     OrangeBall = [200, 255, 0]
     SmallBlueGoal = [255, 101, 0]
     BigGreenGoal = [30, 170, 70]
     Corner = [229, 178, 23]
-    RobotBack = [50, 50, 50]
-    RobotFront = [255, 255, 255]
 
 
 class Color(Enum):
@@ -50,14 +47,16 @@ class Color(Enum):
     BROWN = 3
     GREEN = 4
     BLUE = 5
+    Yellow = 6
 
 
 ballsState = []
 wallsState = []
 smallGoalPos = []
 bigGoalPos = []
-robot_state = Robot(0, 0, 0, 0)
+robot_state = Robot([0, 0], [0, 0], [0, 0])
 walls = []
+
 
 def obstacle_lines(image):
     # convert to grayscale
@@ -106,23 +105,22 @@ def recognise_state_and_draw(image, mask, types):
 
             case Type.Ball:
                 if 120 < area < 1500:
-                    ballsState.append(Ball(x=x, y=y, isOrange=False))
+                    ballsState.append(Ball(x=x, y=y, is_orange=False))
                     show = "circle"
 
             case Type.OrangeBall:
                 if 120 < area < 1500:
-                    ballsState.append(Ball(x=x, y=y, isOrange=True))
+                    ballsState.append(Ball(x=x, y=y, is_orange=True))
                     show = "circle"
 
-            case Type.RobotBack:
+            case Type.Robot:
                 if 120 < area < 1500:
-                    robot_state.back_x = x
-                    robot_state.back_y = y
-                    show = "square"
-            case Type.RobotFront:
-                if 120 < area < 1500:
-                    robot_state.front_x = x
-                    robot_state.front_y = y
+                    if robot_state.pos_1 == [0, 0]:
+                        robot_state.pos_1 = [x, y]
+                    elif robot_state.pos_2 == [0, 0]:
+                        robot_state.pos_2 = [x, y]
+                    elif robot_state.pos_3 == [0, 0]:
+                        robot_state.pos_3 = [x, y]
                     show = "square"
         if show == "circle":
             cv2.circle(image, (x + 15, y + 15), 15, (color[0], color[1], color[2]), 2)
@@ -152,6 +150,9 @@ def mask_from_color(color, image_hsv, clean_image):
         case Color.BLUE:
             color_low = np.array([100, 100, 100], np.uint8)
             color_high = np.array([130, 200, 200], np.uint8)
+        case Color.Yellow:
+            color_low = np.array([200, 177, 123], np.uint8)
+            color_high = np.array([173, 146, 79], np.uint8)
     return cv2.dilate(cv2.inRange(image_hsv, color_low, color_high), clean_image)
 
 
@@ -161,7 +162,8 @@ def get_types():
             Type.Wall,
             Type.Wall,
             Type.BigGreenGoal,
-            Type.SmallBlueGoal]
+            Type.SmallBlueGoal,
+            Type.Robot]
 
 
 def get_masks(image_hsv):
@@ -171,17 +173,19 @@ def get_masks(image_hsv):
             mask_from_color(Color.RED, image_hsv, clean_image),
             mask_from_color(Color.BROWN, image_hsv, clean_image),
             mask_from_color(Color.GREEN, image_hsv, clean_image),
-            mask_from_color(Color.BLUE, image_hsv, clean_image)]
+            mask_from_color(Color.BLUE, image_hsv, clean_image),
+            mask_from_color(Color.Yellow, image_hsv, clean_image)]
 
 
 def reset():
     ballsState.clear()
-    robot_state = Robot(0, 0, 0, 0)
+    global robot_state
+    robot_state = Robot([0, 0], [0, 0], [0, 0])
 
 
 def draw_robot(image):
     cv2.rectangle(image, (600, 250), (600 + 50, 250 + 50),
-                  (Type.RobotFront.value[0], Type.RobotFront.value[1], Type.RobotFront.value[2]), 2)
+                  (Type.Robot.value[0], Type.Robot.value[1], Type.Robot.value[2]), 2)
 
 
 def render():

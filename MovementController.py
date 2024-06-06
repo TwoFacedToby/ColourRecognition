@@ -38,14 +38,14 @@ def next_command_from_state(state):
 
 
 def robot_location(robot_state):
-    vector = np.array([robot_state.back_x - robot_state.front_x, robot_state.back_y - robot_state.front_y])
-    x = robot_state.back_x - vector[0] / 2
-    y = robot_state.back_y - vector[1] / 2
-    rotation = angle_of_vector(vector[0], vector[1])
-    if rotation < 0:
-        rotation = rotation + 360
-    print("x:", x, "y:", y, "rotation:", rotation)
-    return Robot(x, y, rotation)
+    positions = [robot_state.pos_1, robot_state.pos_2, robot_state.pos_3]
+    # Positions: [[x, y],[x, y], [x, y]]
+    # Three positions determines location.
+    # The two closest positions are the two back positions.
+    # The last is the front.
+    # By finding the spot between the back positions and using the front position, determine the rotation and position.
+
+    return Robot(0, 0, 0)
 
 
 def angle_of_vector(x, y):
