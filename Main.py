@@ -1,7 +1,7 @@
 import keyboard
 
 from ImageRec import *
-from MovementController import next_command_from_state
+from MovementController import next_command_from_state, extract_ball_positions, find_shortest_path, nearest_neighbor_path
 from RobotConnection import create_ssh_client, create_shell
 
 coolDownTime = 10
@@ -17,6 +17,19 @@ def main():
             shell = create_shell(ssh_client)
     except Exception as e:
         print(e)
+
+    state = render()
+    print("Ball positions:")
+    print(extract_ball_positions(state.balls))
+
+    print("Robot location: ")
+    print(state.robot.pos_1)
+
+    print("Shortest path: ")
+
+    print("Nearest neighbor: ")
+    print(nearest_neighbor_path(state.robot, state.balls))
+   ## print(find_shortest_path(state.robot, state.balls))
 
     cool = coolDownTime
     while True:
