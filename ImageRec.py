@@ -3,10 +3,10 @@ import cv2
 from enum import Enum
 
 # Capturing video through webcam
-cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+# cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
 
-# cam = cv2.VideoCapture("TrackVideos/Position1_normal.mp4")
+cam = cv2.VideoCapture("TrackVideos/WIN_20240607_12_09_30_Pro.mp4")
 
 
 class State:
