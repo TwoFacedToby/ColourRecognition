@@ -3,6 +3,7 @@ import keyboard
 from ImageRec import *
 from MovementController import next_command_from_state, extract_ball_positions, find_shortest_path, nearest_neighbor_path
 from RobotConnection import create_ssh_client, create_shell
+import time
 
 coolDownTime = 10
 
@@ -18,24 +19,24 @@ def main():
     except Exception as e:
         print(e)
 
-    state = render()
-    print("Ball positions:")
-    print(extract_ball_positions(state.balls))
-
-    print("Robot location: ")
-    print(state.robot.pos_1)
-
-    print("Shortest path: ")
-
-    print("Nearest neighbor: ")
-    print(nearest_neighbor_path(state.robot, state.balls))
-   ## print(find_shortest_path(state.robot, state.balls))
 
     cool = coolDownTime
+    start_time = time.time()
+
+
     while True:
+
+        current_time = time.time()
+
+        
+        
+
         if keyboard.is_pressed('q'):
             break
-        state = render()
+
+        
+        tid = current_time - start_time
+        state = render(tid)
         if cool < 0:
             cool = coolDownTime
             command = next_command_from_state(state)
