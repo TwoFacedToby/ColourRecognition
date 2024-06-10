@@ -11,43 +11,102 @@ class Robot:
         self.y = y
         self.rotation = rotation
 
+class Ball:
+    def __init__(self, x, y, is_orange):
+        self.x = x
+        self.y = y
+        self.isOrange = is_orange
+
+
+# Global variable to store the target ball position
+current_target_ball = None
+
+def ball_is_present(target_ball, ball_positions, error_margin=5):
+    """ Check if the target ball is still present within an error margin. """
+    for ball in ball_positions:
+        if np.linalg.norm(np.array([target_ball.x, target_ball.y]) - np.array([ball.x, ball.y])) < error_margin:
+            return True
+    return False
 
 def next_command_from_state(state):
-    robot_positions = robot_front_and_back(state.robot)
-    if(robot_positions is None):
-        return ""
+    global current_target_ball
 
+    robot_positions = robot_front_and_back(state.robot)
+    if robot_positions is None:
+        return "", None  # Return None for coordinates if no robot is found
 
     robot_pos = robot_position(robot_positions)
+    robot = Robot(robot_pos[0], robot_pos[1], robot_rotation(robot_positions))
 
-    print("Robot rotation: ", robot_rotation(robot_positions))
+    ball_positions = state.balls  # Corrected usage
 
-    robot = Robot(robot_pos[0], robot_pos[0], robot_rotation(robot_positions))
+    # Debug print to check the ball positions
+    print("ball_positions:", ball_positions)
+
     ball_vectors = vectors_to_balls(robot, state.balls)
     vector = [0, 0]
-    if len(ball_vectors) == 1:
-        vector = ball_vectors[0]
-    elif len(ball_vectors) > 1:
-        vector = shortest_vector(ball_vectors)
-    if vector[0] == 0 and vector[1] == 0:
-        return "cMove 0"  # Stops the movement because we didn't find any balls TODO: Make this look for the goal'
+    closest_ball_coords = None
 
-    aim_rotation = angle_of_vector(vector[0], vector[1])  # Checking for rotation
-
-    if aim_rotation - robot.rotation > 5:
-        print("robot rotation: ", robot.rotation)
-        print("Should be rotation:", aim_rotation)
-
-        command = f"turn {int(aim_rotation - robot.rotation)}"
-        if aim_rotation - robot.rotation > 180:
-            command = f"turn {360 - int(aim_rotation - robot.rotation)}"
-            print("rotating by: ", 360 - aim_rotation - robot.rotation)
-        else:
-            print("rotating by: ", aim_rotation - robot.rotation)
-        print(command)
-        return command
+    # Check if the current target ball is still present
+    if current_target_ball and ball_is_present(current_target_ball, ball_positions):
+        vector = vector_from_robot_to_next_ball(robot, current_target_ball)
+        closest_ball_coords = (current_target_ball.x, current_target_ball.y)
+        print("Still targeting the same ball")
     else:
-        return "move 30"
+        current_target_ball = None  # Reset if the ball is no longer present
+
+    if current_target_ball is None:
+        print("Finding new ball!")
+        if len(ball_vectors) == 1:
+            vector = ball_vectors[0]
+            closest_ball_coords = (ball_positions[0].x, ball_positions[0].y)
+            current_target_ball = ball_positions[0]
+        elif len(ball_vectors) > 1:
+            vector, closest_ball_index = shortest_vector_with_index(ball_vectors)
+            closest_ball_coords = (ball_positions[closest_ball_index].x, ball_positions[closest_ball_index].y)
+            current_target_ball = ball_positions[closest_ball_index]
+
+    print("Rotation: ", robot_rotation(robot_positions))
+
+    if vector[0] == 0 and vector[1] == 0:
+        return "cMove 0", None, None  # Return None if no balls are found
+
+    aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+
+    print("Vector: ", vector[0], " ", vector[1])
+    print("Angle: ", aim_rotation)
+
+    temp = normalize_angle_difference(robot_rotation(robot_positions), aim_rotation)
+    print("To rotate: ", temp)
+
+    distance = vector_length(vector)
+
+    if -1.4 < temp < 1.4:
+        return f"move {int(np.abs(distance * 1.4))}"
+    else:
+        return f"turn {int(temp)}"
+
+def get_all_ball_positions(ball_states):
+    """
+    Extracts and returns the positions of all balls as a list of tuples (x, y).
+    """
+    # Debug print to check the ball states being passed
+    print("ball_states:", ball_states)
+    
+    ball_positions = []
+    for ball in ball_states:
+        # Print each ball's attributes to understand the format
+        print("ball:", ball, "ball.x:", ball.x, "ball.y:", ball.y)
+        ball_positions.append((ball.x, ball.y))
+    
+    # Debug print to check the extracted ball positions
+    print("ball_positions:", ball_positions)
+    
+    return ball_positions
+
+def normalize_angle_difference(angle1, angle2):
+    difference = (angle1 - angle2 + 180) % 360 - 180
+    return difference if difference != -180 else 180
 
 
 def robot_rotation(position):
@@ -67,8 +126,6 @@ def robot_front_and_back(robot_state):
 
     positions = [robot_state.pos_1, robot_state.pos_2, robot_state.pos_3]
 
-    print("Positions: ", positions)
-
     # Positions: [[x, y],[x, y], [x, y]]
     # Three positions determines location.
     # The two closest positions are the two front positions.
@@ -80,7 +137,7 @@ def robot_front_and_back(robot_state):
         [positions[1][0] - positions[2][0], positions[1][1] - positions[2][1]],
         [positions[2][0] - positions[0][0], positions[2][1] - positions[0][1]],
     ]
-    shortest = shortest_vector(vectors_between)
+    shortest, index = shortest_vector_with_index(vectors_between)
     front = []
     back = []
     if shortest == vectors_between[0]:
@@ -93,7 +150,7 @@ def robot_front_and_back(robot_state):
         front = [positions[2][0] - shortest[0] / 2, positions[2][1] - shortest[1] / 2]
         back = positions[1]
     
-    print([front, back])
+    
     return [front, back]
 
 
@@ -108,6 +165,15 @@ def angle_of_vector(x, y):
         angle -= 360
     return angle
 
+def angle_of_vector_t(x, y):
+    angle = math.degrees(math.atan2(y, x))
+    if angle < 0:
+        angle += 360
+    # Invert the angle to correct the mirroring issue
+    angle = (360 - angle) % 360
+    return angle
+
+
 
 def vectors_to_balls(robot, ball_states):
     ball_vectors = []
@@ -116,12 +182,14 @@ def vectors_to_balls(robot, ball_states):
     return ball_vectors
 
 
-def shortest_vector(vectors):
+def shortest_vector_with_index(vectors):
     shortest = vectors[0]
-    for vector in vectors:
+    shortest_index = 0
+    for i, vector in enumerate(vectors):
         if vector_length(vector) < vector_length(shortest):
             shortest = vector
-    return shortest
+            shortest_index = i
+    return shortest, shortest_index
 
 
 def vector_length(vector):

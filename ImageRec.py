@@ -4,6 +4,7 @@ from enum import Enum
 from scipy.stats import mode
 from collections import Counter
 from scipy.stats import circmean
+from MovementController import next_command_from_state
 # Capturing video through webcam
 cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
@@ -247,7 +248,7 @@ colors = [
     {
         'name': 'balls',
         'hex_color': 'FDF7F5',
-        'tolerance': 80,
+        'tolerance': 60,
         'min_area': 50,
         'max_area': 300,
         'draw_color': (0, 255, 0)  # Green
@@ -273,7 +274,17 @@ colors = [
         'tolerance': 40,
         'min_area': 500,
         'draw_color': (255, 0, 0)  # Blue
-    }
+    },
+    {
+        'name': 'goal',
+        'hex_color': 'B47CA9',
+        'tolerance': 15,
+        'min_area': 100,
+        'max_area': 300,
+        'draw_color': (0, 255, 255)  # Blue
+    },
+    
+    
     
 ]
 
@@ -290,15 +301,35 @@ def render():
     # Detect multiple colors in the image
     ball_positions, robot_positions = detect_multiple_colors_in_image(image, colors)
 
+    if(len(robot_positions) != 3):
+        print("Are we here")
+        return None
+
+    state = State(
+        balls=[Ball(x, y, True) for x, y in ball_positions],
+        corners=[],  # Update this if you need corners
+        robot=Robot(*robot_positions[:3]),
+        small_goal_pos=None,  # Update this if you have small_goal_pos
+        big_goal_pos=None  # Update this if you have big_goal_pos
+    )
+    #command, closest_ball_coords, vector = next_command_from_state(state)
+
+
+    '''if closest_ball_coords and vector is not None:
+        robot_x, robot_y = state.robot.pos_1
+        vector_x, vector_y = vector
+        # Draw the vector as an arrow from the robot's position
+        end_point = (int(robot_x + vector_x), int(robot_y + vector_y))
+        print(f"Drawing vector from robot at ({robot_x}, {robot_y}) to ({end_point[0]}, {end_point[1]})")  # Debug print
+        cv2.arrowedLine(image, (robot_x, robot_y), end_point, (0, 255, 0), 2)  # Green arrow for the vector
+    '''
+  
+
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
 
-    return State(
-        balls=[Ball(x, y, True) for x, y in ball_positions],
-        corners=[],  # Update this if you need corners
-        robot=Robot(*robot_positions) if len(robot_positions) == 3 else None,
-        small_goal_pos=None,  # Update this if you have small_goal_pos
-        big_goal_pos=None  # Update this if you have big_goal_pos
-    )
+    return state
+
+

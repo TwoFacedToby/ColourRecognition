@@ -2,7 +2,7 @@ import paramiko
 import time
 
 def create_ssh_client():
-    server = '192.168.230.29'
+    server = '192.168.254.29'
     port = 22
     user = 'robot'
     password = 'maker'
@@ -43,6 +43,7 @@ def create_shell(ssh_client):
         if "Ready for orders:" in output:
             break
 
+    send_command_via_shell(shell, "brush -50")
     print('Robot is ready for commands.')
     return shell
     # Example of how to send commands interactively
