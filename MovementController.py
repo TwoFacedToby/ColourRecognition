@@ -19,7 +19,10 @@ def next_command_from_state(state):
 
 
     robot_pos = robot_position(robot_positions)
-    robot = Robot(robot_pos[0], robot_pos[0], robot_rotation(robot_positions)-180)
+
+    print("Robot rotation: ", robot_rotation(robot_positions))
+
+    robot = Robot(robot_pos[0], robot_pos[0], robot_rotation(robot_positions))
     ball_vectors = vectors_to_balls(robot, state.balls)
     vector = [0, 0]
     if len(ball_vectors) == 1:
@@ -63,6 +66,9 @@ def robot_front_and_back(robot_state):
         return None
 
     positions = [robot_state.pos_1, robot_state.pos_2, robot_state.pos_3]
+
+    print("Positions: ", positions)
+
     # Positions: [[x, y],[x, y], [x, y]]
     # Three positions determines location.
     # The two closest positions are the two front positions.
@@ -86,11 +92,21 @@ def robot_front_and_back(robot_state):
     elif shortest == vectors_between[2]:
         front = [positions[2][0] - shortest[0] / 2, positions[2][1] - shortest[1] / 2]
         back = positions[1]
+    
+    print([front, back])
     return [front, back]
 
 
 def angle_of_vector(x, y):
-    return math.degrees(math.atan2(-y, x))
+    angle = math.degrees(math.atan2(y, x))
+    if angle < 0:
+        angle += 360
+    # Invert the angle
+    angle = 360 - angle
+    # Ensure the angle is within 0-360 degrees
+    if angle >= 360:
+        angle -= 360
+    return angle
 
 
 def vectors_to_balls(robot, ball_states):

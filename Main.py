@@ -2,7 +2,7 @@ import keyboard
 
 from ImageRec import *
 from MovementController import next_command_from_state, extract_ball_positions, find_shortest_path, nearest_neighbor_path
-from RobotConnection import create_ssh_client, create_shell
+from RobotConnection import create_ssh_client, create_shell, send_command_via_shell
 import time
 
 coolDownTime = 10
@@ -47,7 +47,7 @@ def main():
             if command.lower() != "":
                 print(command)  # send_command_via_shell(shell, command)
             if ssh_client is not None and shell is not None:
-                print(" ")
+                send_command_via_shell(shell, command)
         else:
             cool -= 1
 
