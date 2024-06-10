@@ -13,7 +13,13 @@ class Robot:
 
 
 def next_command_from_state(state):
-    robot = robot_location(state.robot)
+    robot_positions = robot_front_and_back(state.robot)
+    if(robot_positions is None):
+        return ""
+
+
+    robot_pos = robot_position(robot_positions)
+    robot = Robot(robot_pos[0], robot_pos[0], robot_rotation(robot_positions)-180)
     ball_vectors = vectors_to_balls(robot, state.balls)
     vector = [0, 0]
     if len(ball_vectors) == 1:
@@ -24,30 +30,63 @@ def next_command_from_state(state):
         return "cMove 0"  # Stops the movement because we didn't find any balls TODO: Make this look for the goal'
 
     aim_rotation = angle_of_vector(vector[0], vector[1])  # Checking for rotation
-    print("Should be rotation:", aim_rotation)
-    if aim_rotation > robot.rotation:
-        if aim_rotation > 180 + robot.rotation:
-            return "cTurn -20"  # turn counter-clockwise
+
+    if aim_rotation - robot.rotation > 5:
+        print("robot rotation: ", robot.rotation)
+        print("Should be rotation:", aim_rotation)
+
+        command = f"turn {int(aim_rotation - robot.rotation)}"
+        if aim_rotation - robot.rotation > 180:
+            command = f"turn {360 - int(aim_rotation - robot.rotation)}"
+            print("rotating by: ", 360 - aim_rotation - robot.rotation)
         else:
-            return "cTurn 20"  # turn clockwise
-    if aim_rotation < robot.rotation:
-        if aim_rotation < robot.rotation-180:
-            return "cTurn 20"  # turn clockwise
-        else:
-            return "cTurn -20"  # turn counter-clockwise
-
-    return ""
+            print("rotating by: ", aim_rotation - robot.rotation)
+        print(command)
+        return command
+    else:
+        return "move 30"
 
 
-def robot_location(robot_state):
+def robot_rotation(position):
+    return angle_of_vector(position[0][0]-position[1][0], position[0][1] - position[1][1])
+
+
+def robot_position(front_and_back):
+    diff = [front_and_back[0][0] - front_and_back[1][0], front_and_back[0][1] - front_and_back[1][1]]
+    return [front_and_back[0][0] - (diff[0] / 2), front_and_back[0][1] - (diff[1] / 2)]
+
+
+def robot_front_and_back(robot_state):
+
+    if robot_state is None or robot_state.pos_1 is None or robot_state.pos_2 is None or robot_state.pos_3 is None:
+        print("Robot not found!")
+        return None
+
     positions = [robot_state.pos_1, robot_state.pos_2, robot_state.pos_3]
     # Positions: [[x, y],[x, y], [x, y]]
     # Three positions determines location.
-    # The two closest positions are the two back positions.
-    # The last is the front.
+    # The two closest positions are the two front positions.
+    # The last is the back.
     # By finding the spot between the back positions and using the front position, determine the rotation and position.
 
-    return Robot(0, 0, 0)
+    vectors_between = [
+        [positions[0][0] - positions[1][0], positions[0][1] - positions[1][1]],
+        [positions[1][0] - positions[2][0], positions[1][1] - positions[2][1]],
+        [positions[2][0] - positions[0][0], positions[2][1] - positions[0][1]],
+    ]
+    shortest = shortest_vector(vectors_between)
+    front = []
+    back = []
+    if shortest == vectors_between[0]:
+        front = [positions[0][0] - shortest[0] / 2, positions[0][1] - shortest[1] / 2]
+        back = positions[2]
+    elif shortest == vectors_between[1]:
+        front = [positions[1][0] - shortest[0] / 2, positions[1][1] - shortest[1] / 2]
+        back = positions[0]
+    elif shortest == vectors_between[2]:
+        front = [positions[2][0] - shortest[0] / 2, positions[2][1] - shortest[1] / 2]
+        back = positions[1]
+    return [front, back]
 
 
 def angle_of_vector(x, y):
@@ -74,7 +113,6 @@ def vector_length(vector):
 
 
 def vector_from_robot_to_next_ball(robot, ball):
-    print("ball x: ", ball.x, " ball y: ", ball.y)
     return np.array([robot.x - ball.x, robot.y - ball.y])
 
 

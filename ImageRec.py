@@ -66,33 +66,6 @@ temp_lines = []
 all_lines = []
 
 
-def obstacle_lines(image):
-    # convert to grayscale
-    grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # perform edge detection
-    edges = cv2.Canny(grayscale, 20, 100)
-    # detect lines in the image using hough lines technique
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 30, np.array([]), 20, 0.1)
-    # iterate over the output lines and draw them
-    if len(walls) < 50:
-        walls.append(lines)
-    else:
-        walls.pop(0)
-        walls.append(lines)
-    for wall in walls:
-        if wall is not None:
-            for line in wall:
-                for x1, y1, x2, y2 in line:
-                    cv2.line(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                    cv2.line(edges, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                    global temp_lines
-                    temp_lines.append(np.array([x1,y1,x2,y2]))
-
-    return temp_lines
-
-
-
-
 
 
 def recognise_state_and_draw(image, mask, types):
@@ -257,6 +230,12 @@ def detect_multiple_colors_in_image(image, colors):
     
     for pos in robot_positions:
         cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
+
+    if not ball_positions:
+        print("No balls detected.")
+    if not robot_positions:
+        print("No robots detected.")
+
 
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
