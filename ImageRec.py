@@ -5,10 +5,10 @@ from scipy.stats import mode
 from collections import Counter
 from scipy.stats import circmean
 # Capturing video through webcam
-# cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 
-cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
+#cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
 
 class State:
@@ -92,47 +92,7 @@ def obstacle_lines(image):
 
 
 
-def filter_middle_lines(image, lines, region_fraction=0.5):
-    """
-    Filters lines to keep only those that lie within a central region of the image.
-    
-    :param image: The image on which lines are drawn.
-    :param lines: Num buthe neyor new the and first restively weretes didnthe ser was NumpYenty ther suiest dlet was  new ththe PY which so array of lines, each line represented as [x1, y1, x2, y2]
-    :param region_fraction: Fraction of the width and height considered 'middle' (default 0.5)
-    :return: NumPy array of lines that lie within the middle region
-    """
 
-
-
-    # Extract image dimensions
-    image_height, image_width = image.shape[:2]
-
-    # Calculate the bounds of the middle region
-    margin_x = image_width * (1 - region_fraction) / 2
-    margin_y = image_height * (1 - region_fraction) / 2
-    middle_x1, middle_x2 = margin_x, image_width - margin_x
-    middle_y1, middle_y2 = margin_y, image_height - margin_y
-
-    # Initialize a list to store middle lines
-    middle_lines = []
-
-    # Check each line if it's within the middle region
-    for line in lines:
-        x1, y1, x2, y2 = line
-        # Check if any endpoint of the line is within the middle region
-        if (middle_x1 <= x1 <= middle_x2 and middle_y1 <= y1 <= middle_y2) or \
-           (middle_x1 <= x2 <= middle_x2 and middle_y1 <= y2 <= middle_y2):
-            middle_lines.append([x1, y1, x2, y2])
-
-    return np.array(middle_lines)
-
-def draw_approximated_lines(image, approximated_lines):
-    # Create a copy of the image to draw on
-    
-
-    # Draw each approximated line in black
-    for x1, y1, x2, y2 in approximated_lines:
-        cv2.line(image, (x1, y1), (x2, y2), (0, 0, 0), 2)  # Color set to black (0, 0, 0)
 
 
 def recognise_state_and_draw(image, mask, types):
@@ -256,155 +216,110 @@ def draw_robot(image):
 
 
 
+# Hex to BGR converter
+def hex_to_bgr(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (4, 2, 0))
 
-def draw_dominant_line(image):
-
-
+def detect_multiple_colors_in_image(image, colors):
+    ball_positions = []
+    robot_positions = []
     
-    if image is None:
-        print("Image not found or unable to read.")
-        return
-
-    # Calculate the top 20% segment of the image
-    height = image.shape[0]
-    top_height = int(0.12 * height)  # 20% of the total height
-
-    # Crop the top 20% of the image
-    top_image = image[:top_height]
-
-    # Display the cropped top 20% of the image
-    cv2.imshow('Top 20% of Image', top_image)
-    cv2.waitKey(0)  # Wait for any key to be pressed
-    cv2.destroyAllWindows()
-
-
-    print("Length of all lines:")
-    print(len(all_lines))
-
-    top_lines = []
-    for line in all_lines:
-        x1, y1, x2, y2 = line
-        if y1 < top_height or y2 < top_height:  # Check if any endpoint is in the top 20%
-            top_lines.append(line)
-
-
-    print("Length of top lines:")
-    print(len(top_lines))
-
-    angles = []
-    for line in top_lines:
-        x1, y1, x2, y2 = line
-        # Calculate the angle in radians
-        angle = np.arctan2(y2 - y1, x2 - x1)
+    for color in colors:
+        bgr_color = hex_to_bgr(color['hex_color'])
+        lower_bound = np.array([max(c-color['tolerance'], 0) for c in bgr_color])
+        upper_bound = np.array([min(c+color['tolerance'], 255) for c in bgr_color])
         
-        if angle < -3.0:
-            print("Angle: ", angle)
-
+        # Create a mask for the color range
+        mask = cv2.inRange(image, lower_bound, upper_bound)
         
-        angles.append(angle)
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Draw contours around detected areas and record positions
+        for contour in contours:
+            min_area = color.get('min_area', 0)
+            max_area = color.get('max_area', float('inf'))
+            if min_area < cv2.contourArea(contour) < max_area:
+                M = cv2.moments(contour)
+                if M['m00'] != 0:
+                    cX = int(M['m10'] / M['m00'])
+                    cY = int(M['m01'] / M['m00'])
+                    if color['name'] == 'balls':
+                        ball_positions.append((cX, cY))
+                    elif color['name'] == 'robot':
+                        robot_positions.append((cX, cY))
+                cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
+    
+    # Draw circles for detected ball and robot positions
+    for pos in ball_positions:
+        cv2.circle(image, pos, 5, (0, 0, 0), -1)  # Black circle for balls
+    
+    for pos in robot_positions:
+        cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
 
-    if not angles:
-        print("No lines to process.")
+    ball_positions = ball_positions[:10]
+    robot_positions = robot_positions[:3]
+    
+    return ball_positions, robot_positions
+
+# Define colors and their properties
+colors = [
+    {
+        'name': 'balls',
+        'hex_color': 'FDF7F5',
+        'tolerance': 80,
+        'min_area': 50,
+        'max_area': 300,
+        'draw_color': (0, 255, 0)  # Green
+    },
+    {
+        'name': 'egg',
+        'hex_color': 'FDF7F5',
+        'tolerance': 80,
+        'min_area' : 300,
+        'max_area': 1000,
+        'draw_color': (0, 0, 255) 
+    },
+    {
+        'name': 'wall',
+        'hex_color': 'ff5c0d',
+        'tolerance': 80,
+        'min_area': 500,
+        'draw_color': (255, 0, 255)  # Purple
+    },
+    {
+        'name': 'robot',
+        'hex_color': '9AD9BB',
+        'tolerance': 40,
+        'min_area': 500,
+        'draw_color': (255, 0, 0)  # Blue
+    }
+    
+]
+
+
+
+
+def render():
+    reset()  # Assuming reset() is defined elsewhere
+    ret, image = cam.read()  # Reading Images
+    if not ret:
+        print("Error: Failed to read frame.")
         return None
 
-    # Calculate the circular mean of angles
-    average_angle = np.mean(angles)
-    average_angle_degrees = np.degrees(average_angle)  # Convert radians to degrees
-    
-    print("Average angle in the top 20% of the image:", average_angle)
+    # Detect multiple colors in the image
+    ball_positions, robot_positions = detect_multiple_colors_in_image(image, colors)
 
-
-    midpoints = []
-    for line in top_lines:
-        x1, y1, x2, y2 = line
-        # Calculate the midpoint of each line
-        midpoint_x = (x1 + x2) / 2
-        midpoint_y = (y1 + y2) / 2
-        midpoints.append((midpoint_x, midpoint_y))
-
-    # Convert list of midpoints to numpy array for easy averaging
-    midpoints_array = np.array(midpoints)
-    
-    # Calculate the centroid of all midpoints
-    centroid_x = np.mean(midpoints_array[:, 0])
-    centroid_y = np.mean(midpoints_array[:, 1])
-
-    centroid_point = (int(centroid_x), int(centroid_y))
-    cv2.circle(image, centroid_point, 10, (0, 255, 0), -1)
-
-
-
-    cv2.imshow('circle point', image)
-    cv2.waitKey(0)  # Wait for any key to be pressed
-    cv2.destroyAllWindows()
-
-    draw_line_through_centroid(image, centroid_x, centroid_y, average_angle_degrees)
-    
-
-    
-    return image
-
-
-def draw_line_through_centroid(image, centroid_x, centroid_y, angle_degrees):
-    height, width = image.shape[:2]
-
-    # Correct the angle
-    corrected_angle_degrees = -angle_degrees
-
-    print("corr: ", corrected_angle_degrees)
-
-    # Convert angle from degrees to radians
-    angle_rad = np.radians(corrected_angle_degrees)
-
-    print("Curr rad: ", angle_rad)
-
-    # Determine how far the line should go across the image
-    length = max(width, height) * 2  # Make it long enough to cover the entire image area
-
-    # Calculate the direction vector of the line using the angle
-    dx = length * np.cos(angle_rad)
-    dy = length * np.sin(angle_rad)
-
-    # Calculate the starting and ending points of the line
-    start_point = (int(centroid_x - dx), int(centroid_y - dy))
-    end_point = (int(centroid_x + dx), int(centroid_y + dy))
-
-    print("Starting point:", start_point)
-    print("Ending point:", end_point)
-
-    # Draw the line
-    cv2.line(image, start_point, end_point, (0, 255, 0), 2)  # Green line
-    cv2.imshow('line point', image)
-    cv2.waitKey(0)  # Wait for any key to be pressed
-    cv2.destroyAllWindows()
-
-    return image
-
-def render(curr_time):
-    reset()
-    _, image = cam.read()  # Reading Images
-    image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)  # Convert the imageFrame in BGR to HSV
-    masks = get_masks(image_hsv)
-    types = get_types()
-    for i in range(len(masks)):
-        recognise_state_and_draw(image, masks[i], types[i])
-
-    global all_lines
-    all_lines = obstacle_lines(image)
-
-    if(3 < curr_time <= 4):
-        draw_dominant_line(image)
-    
-    #x_lines = filter_middle_lines(image, all_lines)
-    #draw_approximated_lines(image, x_lines)
-    #draw_robot(image)
-
-    cv2.imshow("Multiple Color Detection in Real-Time", image)
+    # Display the frame with contours and circles
+    cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
+
     return State(
-        balls=ballsState,
-        corners=wallsState,
-        robot=robot_state,
-        small_goal_pos=smallGoalPos,
-        big_goal_pos=bigGoalPos)
+        balls=[Ball(x, y, True) for x, y in ball_positions],
+        corners=[],  # Update this if you need corners
+        robot=Robot(*robot_positions) if len(robot_positions) == 3 else None,
+        small_goal_pos=None,  # Update this if you have small_goal_pos
+        big_goal_pos=None  # Update this if you have big_goal_pos
+    )

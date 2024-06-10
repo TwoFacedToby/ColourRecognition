@@ -23,6 +23,8 @@ def main():
     cool = coolDownTime
     start_time = time.time()
 
+    
+
 
     while True:
 
@@ -36,7 +38,7 @@ def main():
 
         
         tid = current_time - start_time
-        state = render(tid)
+        state = render()
         if cool < 0:
             cool = coolDownTime
             command = next_command_from_state(state)
