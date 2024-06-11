@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from itertools import permutations
 import time
+from shapely.geometry import LineString, Polygon
 
 class Robot:
     def __init__(self, x, y, rotation):
@@ -233,12 +234,23 @@ def angle_of_vector_t(x, y):
 
 
 
-def vectors_to_balls(robot, ball_states):
+def vectors_to_balls(robot, ball_states, walls):
     ball_vectors = []
     for ball in ball_states:
-        ball_vectors.append(vector_from_robot_to_next_ball(robot, ball))
+        if not wall_in_path(robot, ball, walls):
+            ball_vectors.append(vector_from_robot_to_next_ball(robot, ball))
+        else:
+            '''Implement calculating a new route'''
     return ball_vectors
 
+
+def wall_in_path(robot, ball, walls)
+    robot_ball_line = LineString([(robot.x, robot.y), (ball.x, ball.y)])
+    for wall in walls:
+        wall_line = Polygon([(wall.x, wall.y), (wall.w, wall.h)])
+        if robot_ball_line.intersects(wall_line):
+            return True
+    return False
 
 def shortest_vector_with_index(vectors):
     shortest = vectors[0]

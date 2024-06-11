@@ -19,6 +19,7 @@ class State:
         self.robot = robot
         self.small_goal_pos = small_goal_pos
         self.big_goal_pos = big_goal_pos
+        self.walls = walls
 
 
 class Ball:
@@ -80,6 +81,7 @@ def recognise_state_and_draw(image, mask, types):
         match types:
             case Type.Wall:
                 if 10 < area < 300:
+                    wallsState.append((x, y, w, h))
                     show = "square"
 
             case Type.SmallBlueGoal:
