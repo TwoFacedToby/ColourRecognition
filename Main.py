@@ -63,11 +63,14 @@ def main():
                     if ssh_client is not None and shell is not None:
                         send_command_via_shell(shell, command)
                 # Instead of sleep, use a loop to frequently check for interrupts
-                sleep_duration = 2  # total sleep time in seconds
+                sleep_duration = 1  # total sleep time in seconds
                 sleep_step = 0.1  # sleep step in seconds
                 for _ in range(int(sleep_duration / sleep_step)):
                     if keyboard.is_pressed('q'):
                         print("Termination requested during sleep. Exiting...")
+                        send_command_via_shell(shell, "brush 50")
+                        time.sleep(7)
+
                         send_command_via_shell(shell, "brush 0")
                         raise KeyboardInterrupt
                     time.sleep(sleep_step)

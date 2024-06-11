@@ -198,6 +198,7 @@ def hex_to_bgr(hex_color):
 def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
     robot_positions = []
+    goal_position = None
     
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
@@ -211,6 +212,7 @@ def detect_multiple_colors_in_image(image, colors):
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
         # Draw contours around detected areas and record positions
+        # Draw contours around detected areas and record positions
         for contour in contours:
             min_area = color.get('min_area', 0)
             max_area = color.get('max_area', float('inf'))
@@ -223,6 +225,8 @@ def detect_multiple_colors_in_image(image, colors):
                         ball_positions.append((cX, cY))
                     elif color['name'] == 'robot':
                         robot_positions.append((cX, cY))
+                    elif color['name'] == 'goal':
+                        goal_position = (cX, cY)
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
     
     # Draw circles for detected ball and robot positions
@@ -236,12 +240,15 @@ def detect_multiple_colors_in_image(image, colors):
         print("No balls detected.")
     if not robot_positions:
         print("No robots detected.")
+    if goal_position is None:
+        print("No goal detected.")
 
 
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
+
     
-    return ball_positions, robot_positions
+    return ball_positions, robot_positions, goal_position
 
 # Define colors and their properties
 colors = [
@@ -256,7 +263,7 @@ colors = [
     {
         'name': 'egg',
         'hex_color': 'FDF7F5',
-        'tolerance': 80,
+        'tolerance': 20,
         'min_area' : 300,
         'max_area': 1000,
         'draw_color': (0, 0, 255) 
@@ -271,25 +278,32 @@ colors = [
     {
         'name': 'robot',
         'hex_color': '9AD9BB',
-        'tolerance': 40,
-        'min_area': 500,
+        'tolerance': 50,
+        'min_area': 400,
         'draw_color': (255, 0, 0)  # Blue
     },
     {
         'name': 'goal',
-        'hex_color': 'B47CA9',
-        'tolerance': 15,
-        'min_area': 100,
+        'hex_color': 'FDF890',
+        'tolerance': 40,
+        'min_area': 20,
+        'max_area': 500,
+        'draw_color': (0, 0, 0)  # Blue
+    },  
+    {
+        'name': 'orange_balls',
+        'hex_color': 'FE9546',
+        'tolerance': 40,
+        'min_area': 50,
         'max_area': 300,
-        'draw_color': (0, 255, 255)  # Blue
-    },
-    
-    
-    
+        'draw_color': (0, 255, 255)  # Green
+    }
 ]
 
 
-
+def calculate_distance(point1, point2):
+    """ Calculate the Euclidean distance between two points. """
+    return np.linalg.norm(np.array(point1) - np.array(point2))
 
 def render():
     reset()  # Assuming reset() is defined elsewhere
@@ -299,37 +313,38 @@ def render():
         return None
 
     # Detect multiple colors in the image
-    ball_positions, robot_positions = detect_multiple_colors_in_image(image, colors)
+    ball_positions, robot_positions, goal_position = detect_multiple_colors_in_image(image, colors)
 
-    if(len(robot_positions) != 3):
+
+
+
+    if len(robot_positions) != 3:
         print("Are we here")
         return None
+
+
 
     state = State(
         balls=[Ball(x, y, True) for x, y in ball_positions],
         corners=[],  # Update this if you need corners
         robot=Robot(*robot_positions[:3]),
         small_goal_pos=None,  # Update this if you have small_goal_pos
-        big_goal_pos=None  # Update this if you have big_goal_pos
+        big_goal_pos=goal_position  # Update this if you have big_goal_pos
     )
-    #command, closest_ball_coords, vector = next_command_from_state(state)
-
-
-    '''if closest_ball_coords and vector is not None:
-        robot_x, robot_y = state.robot.pos_1
-        vector_x, vector_y = vector
-        # Draw the vector as an arrow from the robot's position
-        end_point = (int(robot_x + vector_x), int(robot_y + vector_y))
-        print(f"Drawing vector from robot at ({robot_x}, {robot_y}) to ({end_point[0]}, {end_point[1]})")  # Debug print
-        cv2.arrowedLine(image, (robot_x, robot_y), end_point, (0, 255, 0), 2)  # Green arrow for the vector
-    '''
-  
+    
+    if goal_position is not None:
+        robot_center = robot_positions[0]  # Use the first robot position as the center
+        distance_to_goal = calculate_distance(robot_center, goal_position)
+        print(f"Distance to goal: {distance_to_goal}")
 
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
 
+
+
     return state
+
 
 

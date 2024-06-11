@@ -65,6 +65,10 @@ def next_command_from_state(state):
             vector, closest_ball_index = shortest_vector_with_index(ball_vectors)
             closest_ball_coords = (ball_positions[closest_ball_index].x, ball_positions[closest_ball_index].y)
             current_target_ball = ball_positions[closest_ball_index]
+        elif not ball_positions:  # No balls left
+            print("Navigating to goal!")
+            return navigate_to_goal(robot, state.big_goal_pos)
+
 
     print("Rotation: ", robot_rotation(robot_positions))
 
@@ -81,10 +85,64 @@ def next_command_from_state(state):
 
     distance = vector_length(vector)
 
-    if -1.4 < temp < 1.4:
-        return f"move {int(np.abs(distance * 1.4))}"
+    if -1 < temp < 1:
+        return f"move {int(np.abs(distance * 1.7))}"
     else:
         return f"turn {int(temp)}"
+    
+def calculate_distance(point1, point2):
+    """ Calculate the Euclidean distance between two points. """
+    return np.linalg.norm(np.array(point1) - np.array(point2))
+
+def navigate_to_goal(robot, goal_position):
+    if not goal_position:
+        return "cMove 0"  # No goal position available
+
+    robot_x, robot_y = robot.x, robot.y
+    goal_x, goal_y = goal_position
+
+    
+
+    # Calculate the distance to the goal
+    distance_to_goal = calculate_distance((robot_x, robot_y), goal_position)
+
+
+    print("Distance to goal: ", distance_to_goal)
+
+    if distance_to_goal <= 110:
+        print("Robot is at the goal.")
+        print()
+        return "brush 80"
+
+    # Calculate the vectors for up/down and left/right movements
+    vertical_vector = np.array([0, goal_y - robot_y])
+    horizontal_vector = np.array([goal_x - robot_x, 0])
+
+    print("vv", vertical_vector[1])
+    if abs(vertical_vector[1]) > 30:  # Move vertically first if significant distance
+        aim_rotation = angle_of_vector_t(vertical_vector[0], vertical_vector[1])
+        distance = vector_length(vertical_vector)
+        temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+        if -1.4 < temp < 1.4:
+            print(f"veri move {int(np.abs(distance * 1.4))}")
+            return f"move {int(np.abs(distance * 1.4))}"
+        else:
+            print(f"veri turn {int(temp)}")
+            return f"turn {int(temp)}"
+    elif abs(horizontal_vector[0]) > 10:  # Then move horizontally if significant distance
+        aim_rotation = angle_of_vector_t(horizontal_vector[0], horizontal_vector[1])
+        distance = vector_length(horizontal_vector)
+        temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+        if -1.4 < temp < 1.4:
+            print(f"hori move {int(np.abs(distance * 1.4))}")
+            return f"move {int(np.abs(distance * 1.4))}"
+        else:
+            print(f"hori turn {int(temp)}")
+            return f"turn {int(temp)}"
+    
+    return "cMove 0"  # If already at goal
 
 def get_all_ball_positions(ball_states):
     """
