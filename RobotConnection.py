@@ -2,7 +2,7 @@ import paramiko
 import time
 
 def create_ssh_client():
-    server = '192.168.254.29'
+    server = '192.168.87.29'
     port = 22
     user = 'robot'
     password = 'maker'
@@ -14,7 +14,16 @@ def create_ssh_client():
 
 def send_command_via_shell(shell, command):
     shell.send(command + '\n')  # Send the command and newline to execute it
-    time.sleep(1)  # Allow some time for the command to be processed
+    
+    output = read_shell_output(shell)
+        
+    while "True" not in output:
+        print(output)
+        output += read_shell_output(shell)
+        if "True" in output:
+            print("We are done moving")
+            break
+    
 
 
 def read_shell_output(shell):
@@ -35,13 +44,6 @@ def create_shell(ssh_client):
 
     print('Starting Program')
     send_command_via_shell(shell, 'python3 /home/robot/cdio.py')
-
-    # Wait for the robot to signal it is ready to receive orders
-    output = ""
-    while "Ready for orders:" not in output:
-        output += read_shell_output(shell)
-        if "Ready for orders:" in output:
-            break
 
     send_command_via_shell(shell, "brush -50")
     print('Robot is ready for commands.')
