@@ -6,18 +6,19 @@ from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state
 # Capturing video through webcam
-cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+#cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 
-#cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
+cam = cv2.VideoCapture("TrackVideos/Test_vid.mkv")
 
 class State:
-    def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos):
+    def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos, grid):
         self.balls = balls
         self.corners = corners
         self.robot = robot
         self.small_goal_pos = small_goal_pos
         self.big_goal_pos = big_goal_pos
+        self.grid = grid
 
 
 class Ball:
@@ -32,6 +33,12 @@ class Robot:
         self.pos_1 = pos_1
         self.pos_2 = pos_2
         self.pos_3 = pos_3
+
+class Grid_tile:
+    def __init__(self, pos_1, pos_2, has_wall):
+        self.pos_1 = pos_1
+        self.pos_2 = pos_2
+        self.has_wall = has_wall
 
 
 class Type(Enum):
@@ -194,10 +201,58 @@ def hex_to_bgr(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (4, 2, 0))
 
+def initialize_grid(image, grid_rows, grid_cols):
+    h, w = image.shape[:2]
+    cell_height = h // grid_rows
+    cell_width = w // grid_cols
+    return cell_height, cell_width, [[0] * grid_cols for _ in range(grid_rows)]
+
+'''Doesnt work
+def update_grid_with_walls(grid, contours, cell_height, cell_width):
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            # Define the bounding box for the current grid cell
+            top_left = (j * cell_width, i * cell_height)
+            bottom_right = ((j + 1) * cell_width, (i + 1) * cell_height)
+            grid_cell_box = np.array([top_left, (top_left[0], bottom_right[1]), bottom_right, (bottom_right[0], top_left[1])])
+
+            # Check if any contour points are inside the grid cell bounding box
+            for contour in contours:
+                if cv2.pointPolygonTest(grid_cell_box, tuple(contour[0][0]), False) >= 0:
+                    grid[i][j] = 1
+                    break  # No need to check further contours for this cell
+                    '''
+
+
+def update_grid_with_walls(image, grid, cell_height, cell_width):
+    bgr_color = hex_to_bgr("ff5c0d")
+    lower_bound = np.array([max(c - 80, 0) for c in bgr_color])
+    upper_bound = np.array([min(c + 80, 255) for c in bgr_color])
+
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            # Define the bounding box for the current grid cell
+            top_left = (j * cell_width, i * cell_height)
+            bottom_right = ((j + 1) * cell_width, (i + 1) * cell_height)
+            cell_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+
+            # Create a mask for the red wall color range
+            mask = cv2.inRange(cell_image, lower_bound, upper_bound)
+
+            # Find contours in the cell image
+            contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            # If any contours are found, mark the grid cell
+            if contours:
+                grid[i][j] = 1
+
 def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
     robot_positions = []
     goal_position = None
+    walls = []
+
+    cell_height, cell_width, grid = initialize_grid(image, 75, 50)
     
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
@@ -210,7 +265,6 @@ def detect_multiple_colors_in_image(image, colors):
         # Find contours in the mask
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Draw contours around detected areas and record positions
         # Draw contours around detected areas and record positions
         for contour in contours:
             min_area = color.get('min_area', 0)
@@ -226,7 +280,11 @@ def detect_multiple_colors_in_image(image, colors):
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
                         goal_position = (cX, cY)
+                    elif color['name'] == 'wall':
+                        walls.append(contour) # This should only include contours marked as walls
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
+
+        update_grid_with_walls(image, grid, cell_height, cell_width)
     
     # Draw circles for detected ball and robot positions
     for pos in ball_positions:
@@ -234,6 +292,16 @@ def detect_multiple_colors_in_image(image, colors):
     
     for pos in robot_positions:
         cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
+
+    for row in range(len(grid)):
+        for col in range(len(grid[0])):
+            # Draw the grid cell
+            top_left = (col * cell_width, row * cell_height)
+            bottom_right = ((col + 1) * cell_width, (row + 1) * cell_height)
+            if grid[row][col] == 1:
+                print("Wall at grid col: ", {col}, " and row: ", {row})
+                cv2.rectangle(image, top_left, bottom_right, (0, 0, 255), -1)  # Fill with red if there's a wall
+            cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 1)  # Draw the grid line
 
     if not ball_positions:
         print("No balls detected.")
@@ -247,7 +315,7 @@ def detect_multiple_colors_in_image(image, colors):
     robot_positions = robot_positions[:3]
 
     
-    return ball_positions, robot_positions, goal_position
+    return ball_positions, robot_positions, goal_position, grid
 
 # Define colors and their properties
 colors = [
@@ -312,7 +380,7 @@ def render():
         return None
 
     # Detect multiple colors in the image
-    ball_positions, robot_positions, goal_position = detect_multiple_colors_in_image(image, colors)
+    ball_positions, robot_positions, goal_position, grid = detect_multiple_colors_in_image(image, colors)
 
 
 
@@ -328,7 +396,8 @@ def render():
         corners=[],  # Update this if you need corners
         robot=Robot(*robot_positions[:3]),
         small_goal_pos=None,  # Update this if you have small_goal_pos
-        big_goal_pos=goal_position  # Update this if you have big_goal_pos
+        big_goal_pos=goal_position,  # Update this if you have big_goal_pos
+        grid=grid
     )
 
 
