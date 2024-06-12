@@ -19,7 +19,7 @@ class Ball:
 
 
 # Global variable to store the target ball position
-current_target_ball = None
+current_path = []
 
 def ball_is_present(target_ball, ball_positions, error_margin=5):
     """ Check if the target ball is still present within an error margin. """
@@ -29,7 +29,7 @@ def ball_is_present(target_ball, ball_positions, error_margin=5):
     return False
 
 def next_command_from_state(state):
-    global current_target_ball
+    global current_path
 
     robot_positions = robot_front_and_back(state.robot)
     if robot_positions is None:
@@ -37,6 +37,29 @@ def next_command_from_state(state):
 
     robot_pos = robot_position(robot_positions)
     robot = Robot(robot_pos[0], robot_pos[1], robot_rotation(robot_positions))
+
+    if not current_path or not state.balls:
+        current_path = nearest_neighbor_path(robot, state.balls, state.walls)
+
+    if not current_path:
+        return "cMove 0"
+
+    target = current_path[0]
+
+    vector = np.array([robot.x - target[0], robot.y - target[1]])
+    aim_rotation = angle_of_vector(-vector[0], -vector[1])
+    temp = normalize_angle_difference(robot.rotation, aim_rotation)
+    distance = vector_length(vector)
+
+    if -1 < temp < 1:
+        command = f"Move {int(np.abs(distance * 1.7))}"
+        current_path.pop(0)
+    else:
+        command = f"turn {int(temp)}"
+
+    return command
+
+    '''Old
 
     ball_positions = state.balls  # Corrected usage
 
@@ -89,6 +112,8 @@ def next_command_from_state(state):
         return f"move {int(np.abs(distance * 1.7))}"
     else:
         return f"turn {int(temp)}"
+
+    '''
     
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
@@ -311,7 +336,80 @@ def find_shortest_path(robot_position, ball_positions):
 
     return best_route_positions, min_distance
 
-def nearest_neighbor_path(robot, ball_objects):
+
+def nearest_path_no_walls(robot, ball_objects, wall_objects):
+
+    robot_pos = [robot.x, robot.y]
+    ball_positions = extract_ball_positions(ball_objects)
+    wall_positions = extract_ball_positions(wall_objects) #Function works for walls aswell
+
+    points = np.vstack([robot_pos, ball_positions]) #points from robot and balls
+
+    dist_matrix = cdist(points, points)
+    num_points = len(points)
+    visited = np.zeros(num_points, dtype=bool)
+    visited[0] = True
+    path = [0]
+
+    current_index = 0
+
+    while len(path) < num_points:
+        distances = dist_matrix[current_index]
+        distances[visited] = np.inf
+
+        for wall in wall_positions:
+            wall_index = list(points).index(wall)
+            distances[wall_index] = np.inf
+
+        next_index = np.argmin(distances)
+        path.append(next_index)
+        visited[next_index] = True
+        current_index = next_index
+
+    path_positions = [points[idx] for idx in path[1:]]
+    return path_positions
+
+def extract_wall_positions(wall_positions):
+    positions = [(wall.x, wall.y) for wall in wall_positions]
+
+    return np.array(positions)
+
+
+def nearest_neighbor_path(robot, ball_objects, wall_objects):
+
+    robot_pos = [robot.x, robot.y]
+    ball_positions = extract_ball_positions(ball_objects)
+    wall_positions = extract_wall_positions(wall_objects) #Function works for walls aswell
+
+    points = np.vstack([robot_pos, ball_positions])
+
+    dist_matrix = cdist(points, points)
+    num_points = len(points)
+    visited = np.zeros(num_points, dtype=bool)
+    visited[0] = True
+    path = [0]
+
+    current_index = 0
+
+    while len(path) < num_points:
+        distances = dist_matrix[current_index]
+        distances[visited] = np.inf
+
+        for wall in wall_positions:
+            wall_index = list(points).index(wall)
+            distances[wall_index] = np.inf
+
+        next_index = np.argmin(distances)
+        path.append(next_index)
+        visited[next_index] = True
+        current_index = next_index
+
+    path_positions = [points[idx] for idx in path[1:]]
+    return path_positions
+
+
+
+    '''Old
     start_time = time.time() 
     
     robot_pos = [0, 0]
@@ -348,3 +446,4 @@ def nearest_neighbor_path(robot, ball_objects):
     print("PATH: ", path_positions)
 
     return path_positions
+'''

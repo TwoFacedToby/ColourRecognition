@@ -51,6 +51,43 @@ def main():
                 cool = coolDownTime
                 command = None
 
+
+                if state:
+                    command = next_command_from_state(state)
+                    if command and command.lower() == 'exit':
+                        print("cathing")
+                        break
+                    if command and command.lower() != "":
+                        print("command: ", command)
+                        if ssh_client is not None and shell is not None:
+                            send_command_via_shell(shell, command)
+                sleep_duration = 1
+                sleep_step = 0.1
+                for _ in range(int(sleep_duration / sleep_step)):
+                    if keyboard.is_pressed('q'):
+                        print("Termination requested. Exiting...")
+                        send_command_via_shell(shell, "brush 50")
+                        time.sleep(7)
+                        send_command_via_shell(shell, "brush 0")
+                        raise KeyboardInterrupt
+                    time.sleep(sleep_step)
+            else:
+                cool -= 1
+
+    except KeyboardInterrupt:
+        print("Program interrupted by user.")
+            if ssh_client is not None and shell is not None:
+                send_command_via_shell(shell, "brush 0")
+    finally:
+        if ssh_client is not None and shell is not None:
+            shell.close()
+            ssh_client.close()
+
+if __name__ == '__main__':
+    main()
+
+
+                '''old
                 
                 command = next_command_from_state(state)
                 
@@ -87,3 +124,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+'''

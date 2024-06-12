@@ -320,9 +320,6 @@ def render():
     # Detect multiple colors in the image
     ball_positions, robot_positions, goal_position, wall_positions = detect_multiple_colors_in_image(image, colors)
 
-
-
-
     if len(robot_positions) != 3:
         print("Are we here")
         return None
@@ -335,7 +332,8 @@ def render():
         robot=Robot(*robot_positions[:3]),
         small_goal_pos=None,  # Update this if you have small_goal_pos
         big_goal_pos=goal_position,  # Update this if you have big_goal_pos
-        walls=wall_positions #Finds walls
+        walls=wall_positions, #Finds walls
+        path=[]
     )
     
     if goal_position is not None:
