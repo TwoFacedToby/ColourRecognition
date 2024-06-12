@@ -265,9 +265,33 @@ def extract_ball_positions(ball_objects):
 
     return np.array(positions)
 
+'''New Adventure'''
+def line_intersect_detecter(line, wall):
+
+    for wall in walls:
+        wx1, wy1, wx2, wy2 = wall
+
+        def ccw(A, B, C):
+            return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
+
+        def intersect(A, B, C, D):
+            return ccw(A, C, D) != ccw(B, C, D) and ccw(A, B, C) != ccw(A, B, D)
+
+        # Check if any segment of the line intersects with any segment of the wall rectangle
+        if intersect((line[0], line[1]), (line[2], line[3]), (wx1, wy1), (wx2, wy1)) \
+                or intersect((line[0], line[1]), (line[2], line[3]), (wx2, wy1), (wx2, wy2)) \
+                or intersect((line[0], line[1]), (line[2], line[3]), (wx2, wy2), (wx1, wy2)) \
+                or intersect((line[0], line[1]), (line[2], line[3]), (wx1, wy2), (wx1, wy1)):
+            return True
+
+    return False
+
+
+def find_path_around_wall()
+    #Write me
 
 ## Bruteforce to find best route to pick up balls
-def find_shortest_path(robot_position, ball_positions):
+def find_shortest_path(robot_position, ball_positions, wall_positions):
     
     start_time = time.time()
 
@@ -311,7 +335,7 @@ def find_shortest_path(robot_position, ball_positions):
 
     return best_route_positions, min_distance
 
-def nearest_neighbor_path(robot, ball_objects):
+def nearest_neighbor_path(robot, ball_objects, walls):
     start_time = time.time() 
     
     robot_pos = [0, 0]
@@ -335,7 +359,17 @@ def nearest_neighbor_path(robot, ball_objects):
         print("distances: ",distances)
         distances[visited] = np.inf  
         next_index = np.argmin(distances)  # Find the index of the nearest unvisited point
-        path.append(next_index) 
+
+    #Check of the path intersect a WALL
+        line = (points[current_index][0], points[current_index][1], points[next_index][0], points[next_index][1])
+        for wall in walls:
+            if line_intersect_detecter(line, wall):
+            #New PATH!
+
+            break #No need to check more walls as we have a new path
+
+
+        path.append(next_index)
         visited[next_index] = True 
         current_index = next_index 
 
