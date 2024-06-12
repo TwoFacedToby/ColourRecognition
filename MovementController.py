@@ -361,13 +361,11 @@ def nearest_neighbor_path(robot, ball_objects, walls):
         distances[visited] = np.inf  
         next_index = np.argmin(distances)  # Find the index of the nearest unvisited point
 
-    #Check of the path intersect a WALL
+    #Check if the path intersect a WALL
         '''
         line = (points[current_index][0], points[current_index][1], points[next_index][0], points[next_index][1])
-        for wall in walls:
-            if line_intersect_detecter(line, wall):
+        if line_intersect = line_intersect_detecter(line, walls)
             # New Path
-
             break #No need to check more walls as we have a new path
         '''
 
