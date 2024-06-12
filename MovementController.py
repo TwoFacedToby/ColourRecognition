@@ -132,7 +132,7 @@ def wall_avoidance(robot, ball, wall_square, walls):
                     shortest_path_length = path_length
                     detour_vector = [wall_square.exterior.coords[i], wall_square.exterior.coords[j]]
 
-            return detour_vector if detour_vector else vector_from_robot_to_next_ball(robot, ball)
+            return detour_vector if detour_vector is not None else vector_from_robot_to_next_ball(robot, ball)
 
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
