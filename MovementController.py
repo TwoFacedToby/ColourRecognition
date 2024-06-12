@@ -86,7 +86,7 @@ def next_command_from_state(state):
     distance = vector_length(vector)
 
     if -1 < temp < 1:
-        return f"move {int(np.abs(distance * 1.7))}"
+        return f"move {int(np.abs(distance * 2))}"
     else:
         return f"turn {int(temp)}"
     

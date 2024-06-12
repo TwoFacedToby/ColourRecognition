@@ -4,11 +4,15 @@ from ImageRec import *
 from MovementController import next_command_from_state, extract_ball_positions, find_shortest_path, nearest_neighbor_path
 from RobotConnection import create_ssh_client, create_shell, send_command_via_shell
 import time
+import threading
 
 coolDownTime = 10
 
 isConnected = True
-def main():
+
+
+
+def real_program():
     ssh_client = None
     shell = None
 
@@ -28,10 +32,10 @@ def main():
 
             if keyboard.is_pressed('q'):
                 print("Termination requested. Exiting...")
+                send_command_via_shell(shell, "brush 50")
+                time.sleep(7)
                 send_command_via_shell(shell, "brush 0")
                 break
-
-            
 
             tid = current_time - start_time
 
@@ -51,9 +55,7 @@ def main():
                 cool = coolDownTime
                 command = None
 
-                
                 command = next_command_from_state(state)
-                
 
                 if command and command.lower() == 'exit':
                     print("catching")
@@ -62,28 +64,49 @@ def main():
                     print(command)  # send_command_via_shell(shell, command)
                     if ssh_client is not None and shell is not None:
                         send_command_via_shell(shell, command)
-                # Instead of sleep, use a loop to frequently check for interrupts
-                sleep_duration = 1  # total sleep time in seconds
-                sleep_step = 0.1  # sleep step in seconds
-                for _ in range(int(sleep_duration / sleep_step)):
-                    if keyboard.is_pressed('q'):
-                        print("Termination requested during sleep. Exiting...")
-                        send_command_via_shell(shell, "brush 50")
-                        time.sleep(7)
-
-                        send_command_via_shell(shell, "brush 0")
-                        raise KeyboardInterrupt
-                    time.sleep(sleep_step)
+                
             else:
                 cool -= 1
     except KeyboardInterrupt:
         print("Program interrupted by user.")
         if ssh_client is not None and shell is not None:
+            send_command_via_shell(shell, "brush 50")
+            time.sleep(7)
             send_command_via_shell(shell, "brush 0")
     finally:
         if ssh_client is not None and shell is not None:
             shell.close()
             ssh_client.close()
+
+
+
+def testing_environment():
+    try:
+        while True:
+            state = render()
+    except KeyboardInterrupt:
+        print("Program interrupted by user.")
+    
+
+
+
+
+def main():
+
+    print("Choose mode:\n1. Real Program\n2. Testing Environment")
+    choice = input("Enter 1 or 2: ").strip()
+    
+    if choice == '1':
+        print("Real program")
+
+        testing_thread = threading.Thread(target=testing_environment)
+        testing_thread.start()
+
+        real_program()
+    elif choice == '2':
+        testing_environment()
+    else:
+        print("Invalid choice. Exiting...")
 
 if __name__ == '__main__':
     main()

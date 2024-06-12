@@ -11,7 +11,6 @@ cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 #cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
-
 class State:
     def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos, walls, path):
         self.balls = balls
@@ -291,25 +290,25 @@ colors = [
     {
         'name': 'robot',
         'hex_color': '9AD9BB',
-        'tolerance': 50,
+        'tolerance': 45,
         'min_area': 400,
         'draw_color': (255, 0, 0)  # Blue
     },
     {
         'name': 'goal',
-        'hex_color': 'FDF890',
-        'tolerance': 40,
-        'min_area': 20,
+        'hex_color': '427092',
+        'tolerance': 20,
+        'min_area': 50,
         'max_area': 500,
-        'draw_color': (0, 0, 0)  # Blue
+        'draw_color': (0, 0, 0)  # Black
     },  
     {
         'name': 'orange_balls',
         'hex_color': 'FE9546',
-        'tolerance': 40,
+        'tolerance': 30,
         'min_area': 50,
         'max_area': 300,
-        'draw_color': (0, 255, 255)  # Green
+        'draw_color': (0, 255, 255)  
     }
 ]
 
@@ -335,7 +334,7 @@ def render():
         print("Are we here")
         return None
 
-
+    
 
     state = State(
         balls=[Ball(x, y, True) for x, y in ball_positions],
@@ -345,11 +344,13 @@ def render():
         big_goal_pos=goal_position,  # Update this if you have big_goal_pos
         walls=wall_positions
     )
+
+
     
     if goal_position is not None:
         robot_center = robot_positions[0]  # Use the first robot position as the center
         distance_to_goal = calculate_distance(robot_center, goal_position)
-        print(f"Distance to goal: {distance_to_goal}")
+        #(f"Distance to goal: {distance_to_goal}")
 
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
