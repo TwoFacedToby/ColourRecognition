@@ -236,8 +236,11 @@ def detect_multiple_colors_in_image(image, colors):
                     elif color['name'] == 'goal':
                         goal_position = (cX, cY)
                     elif color['name'] == 'wall':
-                        x, y, w, h = cv2.boundingRect(contour) # Get the bounding rectangle of the contour
-                        wall_positions.append(((x, y), (x + w, y + h)))# Append the rectangle to wall_positions
+                        epsilon = 0.05 * cv2.arcLength(contour, True)
+                        approx = cv2.approxPolyDP(contour, epsilon, True)
+                        x1, y1 = approx[0][0]
+                        x2, y2 = approx[1][0]
+                        wall_positions.append(((x1, y1), (x2, y2)))
 
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
     
@@ -245,11 +248,9 @@ def detect_multiple_colors_in_image(image, colors):
     for pos in ball_positions:
         cv2.circle(image, pos, 5, (0, 0, 0), -1)  # Black circle for balls
 
-    for pos in wall_positions:
-        cv2.circle(image, pos[0], 5, (255, 255, 0), -1) # Yellow for corners of walls
-        cv2.circle(image, pos[1], 5, (160, 32, 240), -1) # Purple for oposite corner of walls
-        cv2.line(image, pos[0], pos[1], (255, 192, 203), 2) # Orange line connection corners of walls
-    
+    for line in wall_positions:
+        cv2.line(image, line[0], line[1], color['draw_color'], 2)
+
     for pos in robot_positions:
         cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
 
@@ -259,6 +260,8 @@ def detect_multiple_colors_in_image(image, colors):
         print("No robots detected.")
     if goal_position is None:
         print("No goal detected.")
+    if not wall_positions:
+        print("No walls detected.")
 
 
     ball_positions = ball_positions[:10]
