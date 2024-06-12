@@ -21,6 +21,7 @@ class Ball:
 
 # Global variable to store the target ball position
 current_target_ball = None
+robot_thickness = 10; '''Might need tweeking'''
 
 def ball_is_present(target_ball, ball_positions, error_margin=5):
     """ Check if the target ball is still present within an error margin. """
@@ -90,7 +91,49 @@ def next_command_from_state(state):
         return f"move {int(np.abs(distance * 1.7))}"
     else:
         return f"turn {int(temp)}"
-    
+
+
+def vectors_to_balls(robot, ball_state, walls):
+    ball_vectors = []
+    for ball in ball_state:
+        robot_ball_line = LineString([(robot.x, robot.y), (ball.x, ball.y)])
+        avoid_walls = False
+        for wall in walls:
+            wall_square = Polygon([(wall[0], wall[1]), (wall[0] + wall[2], wall[1]),
+                                   (wall[0] + wall[2], wall[1] + wall[3]), (wall[0], wall[1] + wall[3])])
+            if robot_ball_line.intersects(wall_square):
+                avoid_walls = True
+                break
+        if avoid_walls:
+            ball_vectors.append(wall_avoidance(robot, ball, walls))
+        else:
+            ball_vectors.append(vector_from_robot_to_next_ball(robot, ball))
+    return ball_vectors
+
+def wall_avoidance(robot, ball, wall_square, walls):
+    robot_point = Point(robot.x, robot.y)
+    ball_point = Point(ball.x, ball.y)
+    detour_vector = None
+    shortest_path_length = float('inf')
+
+    for wall in walls:
+        wall_square = Polygon([(wall[0], wall[1]), (wall[0] + wall[2], wall[1]),
+                               (wall[0] + wall[2], wall[1] + wall[3]), (wall[0], wall[1] + wall[3])])
+        if not robot_ball_line.intersects(wall_square):
+            continue
+
+        for i in range(4):
+            for j in range(4):
+                if i == j:
+                    continue
+                detour_path = LineString([robot_point, wall_square.exterior.coords[i], wall_square.exterior.coords[j], ball_point])
+                path_length = detour_path.length
+                if path_length < shortest_path_length:
+                    shortest_path_length = path_length
+                    detour_vector = [wall_square.exterior.coords[i], wall_square.exterior.coords[j]]
+
+            return detour_vector if detour_vector else vector_from_robot_to_next_ball(robot, ball)
+
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
     return np.linalg.norm(np.array(point1) - np.array(point2))
@@ -234,23 +277,6 @@ def angle_of_vector_t(x, y):
 
 
 
-def vectors_to_balls(robot, ball_states, walls):
-    ball_vectors = []
-    for ball in ball_states:
-        if not wall_in_path(robot, ball, walls):
-            ball_vectors.append(vector_from_robot_to_next_ball(robot, ball))
-        else:
-            '''Implement calculating a new route'''
-    return ball_vectors
-
-
-def wall_in_path(robot, ball, walls)
-    robot_ball_line = LineString([(robot.x, robot.y), (ball.x, ball.y)])
-    for wall in walls:
-        wall_line = Polygon([(wall.x, wall.y), (wall.w, wall.h)])
-        if robot_ball_line.intersects(wall_line):
-            return True
-    return False
 
 def shortest_vector_with_index(vectors):
     shortest = vectors[0]
