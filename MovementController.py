@@ -266,7 +266,7 @@ def extract_ball_positions(ball_objects):
     return np.array(positions)
 
 '''New Adventure'''
-def line_intersect_detecter(line, wall):
+def line_intersect_detecter(line, walls):
 
     for wall in walls:
         wx1, wy1, wx2, wy2 = wall
@@ -286,9 +286,10 @@ def line_intersect_detecter(line, wall):
 
     return False
 
-
-def find_path_around_wall()
+'''
+def find_path_around_wall():
     #Write me
+'''
 
 ## Bruteforce to find best route to pick up balls
 def find_shortest_path(robot_position, ball_positions, wall_positions):
@@ -361,12 +362,14 @@ def nearest_neighbor_path(robot, ball_objects, walls):
         next_index = np.argmin(distances)  # Find the index of the nearest unvisited point
 
     #Check of the path intersect a WALL
+        '''
         line = (points[current_index][0], points[current_index][1], points[next_index][0], points[next_index][1])
         for wall in walls:
             if line_intersect_detecter(line, wall):
-            #New PATH!
+            # New Path
 
             break #No need to check more walls as we have a new path
+        '''
 
 
         path.append(next_index)

@@ -6,10 +6,10 @@ from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state
 # Capturing video through webcam
-cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+#cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 
-#cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
+cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
 class State:
     def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos, walls, path):
@@ -244,6 +244,11 @@ def detect_multiple_colors_in_image(image, colors):
     # Draw circles for detected ball and robot positions
     for pos in ball_positions:
         cv2.circle(image, pos, 5, (0, 0, 0), -1)  # Black circle for balls
+
+    for pos in wall_positions:
+        cv2.circle(image, pos[0], 5, (255, 255, 0), -1) # Yellow for corners of walls
+        cv2.circle(image, pos[1], 5, (160, 32, 240), -1) # Purple for oposite corner of walls
+        cv2.line(image, pos[0], pos[1], (255, 192, 203), 2) # Orange line connection corners of walls
     
     for pos in robot_positions:
         cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
@@ -342,7 +347,8 @@ def render():
         robot=Robot(*robot_positions[:3]),
         small_goal_pos=None,  # Update this if you have small_goal_pos
         big_goal_pos=goal_position,  # Update this if you have big_goal_pos
-        walls=wall_positions
+        walls=wall_positions,
+        path=[]
     )
 
 
