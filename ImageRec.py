@@ -13,12 +13,14 @@ cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 
 class State:
-    def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos):
+    def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos, walls, path):
         self.balls = balls
         self.corners = corners
         self.robot = robot
         self.small_goal_pos = small_goal_pos
         self.big_goal_pos = big_goal_pos
+        self.walls = walls
+        self.path = path
 
 
 class Ball:
@@ -34,6 +36,12 @@ class Robot:
         self.pos_2 = pos_2
         self.pos_3 = pos_3
 
+class Wall:
+    def __init__(self, pos_1, pos_2, pos3, pos4):
+        self.pos_1 = pos_1
+        self.pos_2 = pos_2
+        self.pos3 = pos3
+        self.pos4 = pos4
 
 class Type(Enum):
     Robot = [255, 255, 0]
@@ -199,6 +207,7 @@ def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
     robot_positions = []
     goal_position = None
+    wall_positions = []
     
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
@@ -227,6 +236,10 @@ def detect_multiple_colors_in_image(image, colors):
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
                         goal_position = (cX, cY)
+                    elif color['name'] == 'wall':
+                        x, y, w, h = cv2.boundingRect(contour) # Get the bounding rectangle of the contour
+                        wall_positions.append(((x, y), (x + w, y + h)))# Append the rectangle to wall_positions
+
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
     
     # Draw circles for detected ball and robot positions
@@ -248,7 +261,7 @@ def detect_multiple_colors_in_image(image, colors):
     robot_positions = robot_positions[:3]
 
     
-    return ball_positions, robot_positions, goal_position
+    return ball_positions, robot_positions, goal_position, wall_positions
 
 # Define colors and their properties
 colors = [
@@ -313,7 +326,7 @@ def render():
         return None
 
     # Detect multiple colors in the image
-    ball_positions, robot_positions, goal_position = detect_multiple_colors_in_image(image, colors)
+    ball_positions, robot_positions, goal_position, wall_positions = detect_multiple_colors_in_image(image, colors)
 
 
 
@@ -329,7 +342,8 @@ def render():
         corners=[],  # Update this if you need corners
         robot=Robot(*robot_positions[:3]),
         small_goal_pos=None,  # Update this if you have small_goal_pos
-        big_goal_pos=goal_position  # Update this if you have big_goal_pos
+        big_goal_pos=goal_position,  # Update this if you have big_goal_pos
+        walls=wall_positions
     )
     
     if goal_position is not None:
