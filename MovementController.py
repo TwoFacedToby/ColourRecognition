@@ -1,3 +1,4 @@
+import heapq
 import math
 
 import numpy as np
@@ -28,6 +29,100 @@ def ball_is_present(target_ball, ball_positions, error_margin=5):
             return True
     return False
 
+def is_path_clear(grid, start, end, cell_height, cell_width):
+    x0, y0 = start
+    x1, y1 = end
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    x = x0
+    y = y0
+    n = 1 + dx + dy
+    x_inc = 1 if x1 > x0 else -1
+    y_inc = 1 if y1 > y0 else -1
+    error = dx - dy
+
+    dx *= 2
+    dy *= 2
+
+    for _ in range(n):
+        grid_x = x // cell_width
+        grid_y = y // cell_height
+        if grid[grid_y][grid_x] == 1:
+            return (grid_y, grid_x)  # Obstacle found at this grid
+        if error > 0:
+            x += x_inc
+            error -= dy
+        else:
+            y += y_inc
+            error += dx
+
+    return True # Safe to proceed
+
+def heuristic(a, b):
+    # Using Manhattan distance as heuristic
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+def is_valid_move(grid, current, neighbor):
+    rows, cols = len(grid), len(grid[0])
+    if not (0 <= neighbor[0] < rows and 0 <= neighbor[1] < cols):
+        return False
+    if grid[neighbor[0]][neighbor[1]] == 1:
+        return False
+    if abs(current[0] - neighbor[0]) == 1 and abs(current[1] - neighbor[1]) == 1: # Diagonal movement
+        if grid[current[0]][neighbor[1]] == 1 or grid[neighbor[0]][current[1]] == 1:
+            return False
+    return True
+
+'''Doesn't take robot width into acount yet'''
+def path_around_wall(grid, start, end):
+    rows, cols = len(grid), len(grid[0])
+    open_set = []
+    heapq.heappush(open_set, (0, start))
+    came_from = {}
+    g_score = {start: 0}
+    f_score = {start: heuristic(start, end)}
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+
+        if current == end:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start)
+            path.reverse()
+            return path
+
+        neighbors = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+        for dx, dy in neighbors:
+            neighbor = (current[0] + dx, current[1] + dy)
+            if is_valid_move(grid, current, neighbor):
+                tentative_g_score = g_score[current] + 1
+                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, end)
+                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+
+    return None  # No path found
+
+def find_next_step_passt_wall(path, cell_height, cell_width):
+    if len(path) < 2:
+        return (path[0][0] * cell_height, path[0][1] * cell_width)  # There is only one way to go
+
+    # Initialize the direction vector
+    direction = (path[1][0] - path[0][0], path[1][1] - path[0][1])
+
+    for i in range(1, len(path) - 1):
+        current_direction = (path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1])
+        if current_direction != direction:
+            return (path[i][0] * cell_height, path[i][1] * cell_width)  # Return coordinates at strightline end
+
+    return (path[-1][0] * cell_height, path[-1][1] * cell_width)  # The whole path is straight
+
+
+'''Doesn't take longer distances around wall into acount yet'''
 def next_command_from_state(state):
     global current_target_ball
 
@@ -67,8 +162,22 @@ def next_command_from_state(state):
             current_target_ball = ball_positions[closest_ball_index]
         elif not ball_positions:  # No balls left
             print("Navigating to goal!")
-            return navigate_to_goal(robot, state.big_goal_pos)
+            return navigate_to_goal(robot, state.big_goal_pos) # This needs wall detection aswell (not implemented)
 
+    '''Check for collision'''
+    robot_grid_pos = (robot_pos[0] // state.cell_width, robot_pos[1] // state.cell_height)
+    ball_grid_pos = (closest_ball_coords[0] // state.cell_width, closest_ball_coords[1] // state.cell_height)
+    obstacle = is_path_clear(state.grid, robot_grid_pos, ball_grid_pos, state.cell_height, state.cell_width)
+
+    if obstacle != True:
+        #Adjust path to avoid wall
+        print("Collision detected fingind new route")
+        path = path_around_wall(state.grid, robot_grid_pos, ball_grid_pos) #Create a path around wall
+        destination = find_next_step_passt_wall(path, state.cell_height, state.cell_width) #First straight point around wall from path
+        vector = vector_from_robot_to_next_ball(robot, current_target_ball) #vector is made from destination
+        print("Adjusted vector: ", vector)
+
+    # Continue with work with vector as it is changed accordingly in case of wall
 
     print("Rotation: ", robot_rotation(robot_positions))
 

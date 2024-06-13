@@ -226,27 +226,41 @@ def update_grid_with_walls(grid, contours, cell_height, cell_width):
                     '''
 
 
-def update_grid_with_walls(image, grid, cell_height, cell_width):
-    bgr_color = hex_to_bgr("ff5c0d")
-    lower_bound = np.array([max(c - 80, 0) for c in bgr_color])
-    upper_bound = np.array([min(c + 80, 255) for c in bgr_color])
+def update_grid_with_obstacles(image, grid, cell_height, cell_width):
+    wall_bgr_color = hex_to_bgr("ff5c0d")
+    egg_bgr_color = hex_to_bgr("FDF7F5")
+
+    wall_lower_bound = np.array([max(c - 80, 0) for c in wall_bgr_color])
+    wall_upper_bound = np.array([min(c + 80, 255) for c in wall_bgr_color])
+
+    egg_lower_bound = np.array([max(c - 20, 0) for c in egg_bgr_color])
+    egg_upper_bound = np.array([min(c + 20, 255) for c in egg_bgr_color])
 
     for i in range(len(grid)):
         for j in range(len(grid[0])):
-            # Define the bounding box for the current grid cell
-            top_left = (j * cell_width, i * cell_height)
-            bottom_right = ((j + 1) * cell_width, (i + 1) * cell_height)
+            # Define how many grids around we look inside aswell
+            top_left = (max((j - 1) * cell_width, 0), (max((i - 1) * cell_height, 0)))
+            bottom_right = ((min((j + 2) * cell_width, image.shape[1])), (min((i + 2) * cell_height, image.shape[0])))
             cell_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
 
             # Create a mask for the red wall color range
-            mask = cv2.inRange(cell_image, lower_bound, upper_bound)
+            wall_mask = cv2.inRange(cell_image, wall_lower_bound, wall_upper_bound)
+
+            egg_mask = cv2.inRange(cell_image, egg_lower_bound, egg_upper_bound)
 
             # Find contours in the cell image
-            contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            wall_contours, _ = cv2.findContours(wall_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-            # If any contours are found, mark the grid cell
-            if contours:
-                grid[i][j] = 1
+            egg_contours, _ = cv2.findContours(egg_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            # If any contours are found and big enough, mark the grid cell
+            for(contour) in  wall_contours:
+                if 300 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                    grid[i][j] = 1
+
+            for(contour) in egg_contours:
+                if 500 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                  grid[i][j] = 1
 
 def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
@@ -254,7 +268,7 @@ def detect_multiple_colors_in_image(image, colors):
     goal_position = None
     walls = []
 
-    cell_height, cell_width, grid = initialize_grid(image, 75, 50)
+    cell_height, cell_width, grid = initialize_grid(image, 90, 90)
     
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
@@ -283,10 +297,12 @@ def detect_multiple_colors_in_image(image, colors):
                     elif color['name'] == 'goal':
                         goal_position = (cX, cY)
                     elif color['name'] == 'wall':
-                        walls.append(contour) # This should only include contours marked as walls
+                        walls.append(contour) # This adds walls
+                    elif color['name'] == 'egg':
+                        walls.append(contour)
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
 
-        update_grid_with_walls(image, grid, cell_height, cell_width)
+        update_grid_with_obstacles(image, grid, cell_height, cell_width)
     
     # Draw circles for detected ball and robot positions
     for pos in ball_positions:
@@ -480,6 +496,8 @@ def test_algorithm():
 
     # Visualize the path on the grid
     plot_grid(grid, path, start, end)
+    dest = find_straight_line_endpoint(path)
+    print("First destination : ", dest)
 
 def heuristic(a, b):
     # Using Manhattan distance as heuristic
@@ -529,3 +547,17 @@ def a_star(grid, start, end):
 
     return None  # No path found
 
+'''Check to see if it's a straight line'''
+def find_straight_line_endpoint(path):
+    if len(path) < 2:
+        return None  # Path too short to determine direction changes
+
+    # Initialize the direction vector
+    direction = (path[1][0] - path[0][0], path[1][1] - path[0][1])
+
+    for i in range(1, len(path) - 1):
+        current_direction = (path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1])
+        if current_direction != direction:
+            return path[i]  # Return the position before the direction changes
+
+    return path[-1]  # The whole path is straight
