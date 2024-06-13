@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from itertools import permutations
 import time
+import shared_state
 
 class Robot:
     def __init__(self, x, y, rotation):
@@ -69,11 +70,10 @@ def next_command_from_state(state):
             print("Navigating to goal!")
             return navigate_to_goal(robot, state.big_goal_pos)
 
-
     print("Rotation: ", robot_rotation(robot_positions))
 
     if vector[0] == 0 and vector[1] == 0:
-        return "cMove 0", None, None  # Return None if no balls are found
+        return "cMove 0", None  # Return None if no balls are found
 
     aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
 
@@ -83,10 +83,14 @@ def next_command_from_state(state):
     temp = normalize_angle_difference(robot_rotation(robot_positions), aim_rotation)
     print("To rotate: ", temp)
 
+    # Calculate the distance and normalize it using the reference vector magnitude and real world distance
     distance = vector_length(vector)
+    print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
+    normalized_distance = (distance / shared_state.reference_vector_magnitude) * shared_state.real_world_distance
+    print("Normalized distance: ", normalized_distance)
 
     if -1 < temp < 1:
-        return f"move {int(np.abs(distance * 2))}"
+        return f"move {int(np.abs(normalized_distance))}"
     else:
         return f"turn {int(temp)}"
     

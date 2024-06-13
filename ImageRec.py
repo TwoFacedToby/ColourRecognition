@@ -4,9 +4,13 @@ from enum import Enum
 from scipy.stats import mode
 from collections import Counter
 from scipy.stats import circmean
-from MovementController import next_command_from_state
+from MovementController import next_command_from_state, robot_position, robot_front_and_back, shortest_vector_with_index, vector_from_robot_to_next_ball
 # Capturing video through webcam
 cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
+from sklearn.cluster import DBSCAN
+from collections import Counter, deque
+import shared_state
 
 
 #cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
@@ -194,28 +198,53 @@ def hex_to_bgr(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (4, 2, 0))
 
+
+def vector_between_points(point1, point2):
+    """ Calculate the vector between two points (x, y). """
+    return np.array([point1[0] - point2[0], point1[1] - point2[1]])
+
+
+# Initialize EMA variables
+prev_middle_x = None
+prev_middle_y = None
+alpha = 0.2  # Smoothing factor
+
+# History buffers for running average
+history_length = 10
+low_x_history = deque(maxlen=50)
+high_x_history = deque(maxlen=50)
+middle_points_history = deque(maxlen=100)
+
+
+real_world_distance = shared_state.real_world_distance
+
+
+
 def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
     robot_positions = []
     goal_position = None
-    
+    wall_positions = []
+    wall_x_positions = []
+    highest_x_point = None
+    lowest_x_point = None
+
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
-        lower_bound = np.array([max(c-color['tolerance'], 0) for c in bgr_color])
-        upper_bound = np.array([min(c+color['tolerance'], 255) for c in bgr_color])
-        
+        lower_bound = np.array([max(c - color['tolerance'], 0) for c in bgr_color])
+        upper_bound = np.array([min(c + color['tolerance'], 255) for c in bgr_color])
+
         # Create a mask for the color range
         mask = cv2.inRange(image, lower_bound, upper_bound)
-        
+
         # Find contours in the mask
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Draw contours around detected areas and record positions
         # Draw contours around detected areas and record positions
         for contour in contours:
+            area = cv2.contourArea(contour)
             min_area = color.get('min_area', 0)
             max_area = color.get('max_area', float('inf'))
-            if min_area < cv2.contourArea(contour) < max_area:
+            if min_area < area < max_area:
                 M = cv2.moments(contour)
                 if M['m00'] != 0:
                     cX = int(M['m10'] / M['m00'])
@@ -226,8 +255,13 @@ def detect_multiple_colors_in_image(image, colors):
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
                         goal_position = (cX, cY)
+                    elif color['name'] == 'wall':
+                        wall_positions.append((cX, cY))
+                        # Append all x-values from the contour to wall_x_positions
+                        for point in contour:
+                            wall_x_positions.append(point[0][0])
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
-    
+
     # Draw circles for detected ball and robot positions
     for pos in ball_positions:
         cv2.circle(image, pos, 5, (0, 0, 0), -1)  # Black circle for balls
@@ -239,14 +273,64 @@ def detect_multiple_colors_in_image(image, colors):
         print("No balls detected.")
     if not robot_positions:
         print("No robots detected.")
-    if goal_position is None:
-        print("No goal detected.")
+    #if goal_position is None:
+        #print("No goal detected.")
 
+    # Calculate the middle point of all wall contours
+    if wall_positions:
+        wall_positions = np.array(wall_positions)
+        avg_x = int(np.mean(wall_positions[:, 0]))
+        avg_y = int(np.mean(wall_positions[:, 1]))
+        middle_point = (avg_x, avg_y)
+
+        # Append the new middle point to the history
+        middle_points_history.append(middle_point)
+
+        # Calculate the most common middle point from history for stability
+        most_common_middle_point = Counter(middle_points_history).most_common(1)[0][0]
+
+        print("Most common middlepoint: ", most_common_middle_point)
+
+        cv2.circle(image, most_common_middle_point, 5, (0, 0, 0), -1)
+
+    lowest_x_with_center_y = None
+    highest_x_with_center_y = None
+
+    # Filter x-values for the desired ranges
+    low_x_values = [x for x in wall_x_positions if x < 100]
+    high_x_values = [x for x in wall_x_positions if x > 500]
+
+    # Find the most common x-value in each range
+    if low_x_values:
+        most_common_low_x = Counter(low_x_values).most_common(1)[0][0]
+        low_x_history.append(most_common_low_x)
+        stable_low_x = int(np.mean(low_x_history))
+        lowest_x_with_center_y = (stable_low_x, most_common_middle_point[1])
+        cv2.circle(image, lowest_x_with_center_y, 5, (0, 0, 0), -1)  # Black dot for the most common low x with center y
+
+    if high_x_values:
+        most_common_high_x = Counter(high_x_values).most_common(1)[0][0]
+        high_x_history.append(most_common_high_x)
+        stable_high_x = int(np.mean(high_x_history))
+        highest_x_with_center_y = (stable_high_x, most_common_middle_point[1])
+        cv2.circle(image, highest_x_with_center_y, 5, (0, 0, 0), -1)  # Black dot for the most common high x with center y
+
+    # Calculate the reference vector magnitude
+    if lowest_x_with_center_y and highest_x_with_center_y:
+        reference_vector = vector_between_points(highest_x_with_center_y, lowest_x_with_center_y)
+        shared_state.reference_vector_magnitude = np.linalg.norm(reference_vector)
 
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
 
-    
+    # Assuming 'image' is the image array
+    height, width, _ = image.shape
+    middle_x = width // 2
+    middle_y = height // 2
+
+    # Draw a circle at the exact middle of the image
+    cv2.circle(image, (middle_x, middle_y), 5, (0, 255, 0), -1)  # Green circle for the middle point
+
     return ball_positions, robot_positions, goal_position
 
 # Define colors and their properties
@@ -304,6 +388,37 @@ def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
     return np.linalg.norm(np.array(point1) - np.array(point2))
 
+
+
+# Given values
+robot_real_height = 16.0  # cm
+camera_height = 187.5  # cm
+
+def calculate_real_world_position(robot_pos, image_height):
+    """
+    Calculate the real-world position of the robot.
+    
+    Parameters:
+    robot_pos (tuple): The observed position of the robot in the image (x, y).
+    image_height (int): The height of the image in pixels.
+    
+    Returns:
+    tuple: The real-world position of the robot (x, y) in pixels for drawing.
+    """
+    # Calculate the vertical distance from the robot's top to the camera height
+    vertical_distance = camera_height - robot_real_height
+
+    # Calculate the real-world vertical position based on camera height
+    # This involves projecting the observed position to the ground
+    # Use the ratio of the camera height to the vertical distance
+    real_world_y = robot_pos[1] + (robot_real_height / camera_height) * (image_height - robot_pos[1])
+
+    # The x-coordinate is unaffected in this simplified top-down projection
+    real_world_x = robot_pos[0]
+
+    return real_world_x, real_world_y
+
+
 def render():
     reset()  # Assuming reset() is defined elsewhere
     ret, image = cam.read()  # Reading Images
@@ -314,14 +429,9 @@ def render():
     # Detect multiple colors in the image
     ball_positions, robot_positions, goal_position = detect_multiple_colors_in_image(image, colors)
 
-
-
-
     if len(robot_positions) != 3:
         print("Are we here")
         return None
-
-    
 
     state = State(
         balls=[Ball(x, y, True) for x, y in ball_positions],
@@ -332,18 +442,37 @@ def render():
     )
 
 
-    
+    # Calculate front and back positions of the robot
+    front_and_back = robot_front_and_back(state.robot)
+
+    if front_and_back is not None:
+        # Calculate robot position and draw a blue circle
+        robot_pos = robot_position(front_and_back)
+        cv2.circle(image, (int(robot_pos[0]), int(robot_pos[1])), 5, (255, 0, 0), -1)
+        # Draw a vector from robot_pos to the first ball
+
+        # Calculate the real-world position of the robot
+        real_world_robot_pos = calculate_real_world_position(robot_pos, image.shape[0])
+        print("Real-world robot position:", real_world_robot_pos)
+        print("Robot pos: ", robot_pos)
+
+
+        if state.balls:
+            first_ball = state.balls[0]
+            cv2.line(image, (int(robot_pos[0]), int(robot_pos[1])), (int(first_ball.x), int(first_ball.y)), (255, 0, 0), 2)
+            # Draw a vector from the real-world position to the first ball
+            cv2.line(image, (int(real_world_robot_pos[0]), int(real_world_robot_pos[1])), (int(first_ball.x), int(first_ball.y)), (0, 255, 0), 2)
+
+
     if goal_position is not None:
         robot_center = robot_positions[0]  # Use the first robot position as the center
         distance_to_goal = calculate_distance(robot_center, goal_position)
-        #(f"Distance to goal: {distance_to_goal}")
+        # (f"Distance to goal: {distance_to_goal}")
 
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
-
-
 
     return state
 
