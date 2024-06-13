@@ -11,6 +11,7 @@ cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 from sklearn.cluster import DBSCAN
 from collections import Counter, deque
 import shared_state
+import math
 
 
 #cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
@@ -273,8 +274,8 @@ def detect_multiple_colors_in_image(image, colors):
         print("No balls detected.")
     if not robot_positions:
         print("No robots detected.")
-    #if goal_position is None:
-        #print("No goal detected.")
+    if goal_position is None:
+        print("No goal detected.")
 
     # Calculate the middle point of all wall contours
     if wall_positions:
@@ -289,7 +290,9 @@ def detect_multiple_colors_in_image(image, colors):
         # Calculate the most common middle point from history for stability
         most_common_middle_point = Counter(middle_points_history).most_common(1)[0][0]
 
-        print("Most common middlepoint: ", most_common_middle_point)
+        shared_state.middlepoint = most_common_middle_point
+
+        #print("Most common middlepoint: ", most_common_middle_point)
 
         cv2.circle(image, most_common_middle_point, 5, (0, 0, 0), -1)
 
@@ -306,6 +309,7 @@ def detect_multiple_colors_in_image(image, colors):
         low_x_history.append(most_common_low_x)
         stable_low_x = int(np.mean(low_x_history))
         lowest_x_with_center_y = (stable_low_x, most_common_middle_point[1])
+        shared_state.low_x = lowest_x_with_center_y
         cv2.circle(image, lowest_x_with_center_y, 5, (0, 0, 0), -1)  # Black dot for the most common low x with center y
 
     if high_x_values:
@@ -338,7 +342,7 @@ colors = [
     {
         'name': 'balls',
         'hex_color': 'FDF7F5',
-        'tolerance': 60,
+        'tolerance': 75,
         'min_area': 50,
         'max_area': 300,
         'draw_color': (0, 255, 0)  # Green
@@ -353,7 +357,7 @@ colors = [
     },
     {
         'name': 'wall',
-        'hex_color': 'ff5c0d',
+        'hex_color': 'C60100',
         'tolerance': 80,
         'min_area': 500,
         'draw_color': (255, 0, 255)  # Purple
@@ -367,7 +371,7 @@ colors = [
     },
     {
         'name': 'goal',
-        'hex_color': '427092',
+        'hex_color': 'ADA0BD',
         'tolerance': 20,
         'min_area': 50,
         'max_area': 500,
@@ -392,7 +396,9 @@ def calculate_distance(point1, point2):
 
 # Given values
 robot_real_height = 16.0  # cm
-camera_height = 187.5  # cm
+camera_height = 189  # cm
+field = 84
+
 
 def calculate_real_world_position(robot_pos, image_height):
     """
@@ -413,11 +419,79 @@ def calculate_real_world_position(robot_pos, image_height):
     # Use the ratio of the camera height to the vertical distance
     real_world_y = robot_pos[1] + (robot_real_height / camera_height) * (image_height - robot_pos[1])
 
+    image_height = shared_state.image_height
+
     # The x-coordinate is unaffected in this simplified top-down projection
     real_world_x = robot_pos[0]
 
     return real_world_x, real_world_y
 
+def angle_of_vector(x, y):
+    angle = math.degrees(math.atan2(y, x))
+    if angle < 0:
+        angle += 360
+    # Invert the angle
+    angle = 360 - angle
+    # Ensure the angle is within 0-360 degrees
+    if angle >= 360:
+        angle -= 360
+    return angle
+
+
+def robot_rotation(position, image_height):
+    # Convert the front and back positions to real-world coordinates
+    front_real_world = calculate_real_world_position(position[0], image_height)
+    back_real_world = calculate_real_world_position(position[1], image_height)
+    return angle_of_vector(front_real_world[0] - back_real_world[0], front_real_world[1] - back_real_world[1])
+
+
+def robot_rotation_old(position):
+    return angle_of_vector(position[0][0]-position[1][0], position[0][1] - position[1][1])
+
+def calculate_pixel_to_cm_ratio(pixel_distance):
+    half_field_width_cm = 84  # Known half-field width in cm
+    return half_field_width_cm / pixel_distance
+
+def calculate_b_adj(camera_height, robot_height, horizontal_distance_cm):
+    effective_height = camera_height - robot_height
+    return horizontal_distance_cm * (effective_height / camera_height)
+
+def reverse_angle(angle):
+    # Add 180 to the given angle and take modulo 360 to ensure it's within 0-360
+    reversed_angle = (angle + 180) % 360
+    return reversed_angle
+
+def calculate_final_position(midpoint, robot_position, camera_height, end_of_field, robot_height):
+    pixel_distance = math.sqrt((end_of_field[0] - midpoint[0])**2 + (end_of_field[1] - midpoint[1])**2)
+    pixel_to_cm_ratio = calculate_pixel_to_cm_ratio(pixel_distance)
+    dx = robot_position[0] - midpoint[0]
+    dy = robot_position[1] - midpoint[1]
+    horizontal_distance_cm = math.sqrt(dx**2 + dy**2) * pixel_to_cm_ratio
+
+    b_adj = calculate_b_adj(camera_height, robot_height, horizontal_distance_cm)
+
+    print("B in cm: ", horizontal_distance_cm)
+    print("b_adj: ", b_adj)
+
+    angle = angle_of_vector(dx, dy)
+    reversed_angle = reverse_angle(angle)
+
+
+    print("Angle of vector: ", reversed_angle)
+    rad_angle = np.deg2rad(reversed_angle)
+    print("Rad angle: ", rad_angle)
+    print("back to pixels: ", b_adj/pixel_to_cm_ratio)
+    print("84 cm in pixels: ", pixel_distance)
+
+    robo_pix_distance = b_adj/pixel_to_cm_ratio
+
+    final_x = midpoint[0] - robo_pix_distance * math.cos(rad_angle)
+    final_y = midpoint[1] + robo_pix_distance * math.sin(rad_angle)
+
+    return (final_x, final_y)
+
+
+print(calculate_b_adj(187.5, 16, 84))
 
 def render():
     reset()  # Assuming reset() is defined elsewhere
@@ -441,33 +515,35 @@ def render():
         big_goal_pos=goal_position  # Update this if you have big_goal_pos
     )
 
-
     # Calculate front and back positions of the robot
     front_and_back = robot_front_and_back(state.robot)
+
+    #print("Robot rotation: ", robot_rotation(front_and_back, shared_state.image_height))
+    
+    rob_rot = robot_rotation_old(front_and_back)
+
+    #print("Old rot: ", rob_rot)
 
     if front_and_back is not None:
         # Calculate robot position and draw a blue circle
         robot_pos = robot_position(front_and_back)
+        
         cv2.circle(image, (int(robot_pos[0]), int(robot_pos[1])), 5, (255, 0, 0), -1)
-        # Draw a vector from robot_pos to the first ball
+        
+        coords = calculate_final_position(shared_state.middlepoint, robot_pos, camera_height, shared_state.low_x, robot_real_height)
+        print("Start robo: ", robot_pos)
+        print("Middle point: ", shared_state.middlepoint[0], " ", shared_state.middlepoint[1])
+        print("My coords: ", coords)
+        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 0), -1)
 
-        # Calculate the real-world position of the robot
-        real_world_robot_pos = calculate_real_world_position(robot_pos, image.shape[0])
-        print("Real-world robot position:", real_world_robot_pos)
-        print("Robot pos: ", robot_pos)
-
-
-        if state.balls:
-            first_ball = state.balls[0]
-            cv2.line(image, (int(robot_pos[0]), int(robot_pos[1])), (int(first_ball.x), int(first_ball.y)), (255, 0, 0), 2)
-            # Draw a vector from the real-world position to the first ball
-            cv2.line(image, (int(real_world_robot_pos[0]), int(real_world_robot_pos[1])), (int(first_ball.x), int(first_ball.y)), (0, 255, 0), 2)
-
+        shared_state.real_position_robo = coords
 
     if goal_position is not None:
         robot_center = robot_positions[0]  # Use the first robot position as the center
         distance_to_goal = calculate_distance(robot_center, goal_position)
-        # (f"Distance to goal: {distance_to_goal}")
+
+
+    calculate_final_position
 
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
@@ -475,6 +551,7 @@ def render():
         cv2.destroyAllWindows()
 
     return state
+
 
 
 

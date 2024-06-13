@@ -29,6 +29,37 @@ def ball_is_present(target_ball, ball_positions, error_margin=5):
             return True
     return False
 
+# Given values
+robot_real_height = 16.0  # cm
+camera_height = 189  # cm
+
+def calculate_real_world_position(robot_pos, image_height):
+    """
+    Calculate the real-world position of the robot.
+    
+    Parameters:
+    robot_pos (tuple): The observed position of the robot in the image (x, y).
+    image_height (int): The height of the image in pixels.
+    
+    Returns:
+    tuple: The real-world position of the robot (x, y) in pixels for drawing.
+    """
+    # Calculate the vertical distance from the robot's top to the camera height
+    vertical_distance = camera_height - robot_real_height
+
+    # Calculate the real-world vertical position based on camera height
+    # This involves projecting the observed position to the ground
+    # Use the ratio of the camera height to the vertical distance
+    real_world_y = robot_pos[1] + (robot_real_height / camera_height) * (image_height - robot_pos[1])
+
+    # The x-coordinate is unaffected in this simplified top-down projection
+    real_world_x = robot_pos[0]
+
+    return real_world_x, real_world_y
+
+def robot_rotation_old(position):
+    return angle_of_vector(position[0][0]-position[1][0], position[0][1] - position[1][1])
+
 def next_command_from_state(state):
     global current_target_ball
 
@@ -37,14 +68,16 @@ def next_command_from_state(state):
         return "", None  # Return None for coordinates if no robot is found
 
     robot_pos = robot_position(robot_positions)
-    robot = Robot(robot_pos[0], robot_pos[1], robot_rotation(robot_positions))
+    
+    # Calculate the real-world position of the robot
+    real_robo_pos = shared_state.real_position_robo
+    robot = Robot(real_robo_pos[0], real_robo_pos[1], robot_rotation_old(robot_positions))
 
     ball_positions = state.balls  # Corrected usage
 
-    # Debug print to check the ball positions
-    print("ball_positions:", ball_positions)
+    
 
-    ball_vectors = vectors_to_balls(robot, state.balls)
+    ball_vectors = vectors_to_balls(robot, ball_positions)
     vector = [0, 0]
     closest_ball_coords = None
 
@@ -69,8 +102,11 @@ def next_command_from_state(state):
         elif not ball_positions:  # No balls left
             print("Navigating to goal!")
             return navigate_to_goal(robot, state.big_goal_pos)
+        
+    # Set the current target ball in shared_state
+    shared_state.current_ball = current_target_ball
 
-    print("Rotation: ", robot_rotation(robot_positions))
+    print("Rotation: ", robot.rotation)
 
     if vector[0] == 0 and vector[1] == 0:
         return "cMove 0", None  # Return None if no balls are found
@@ -80,7 +116,7 @@ def next_command_from_state(state):
     print("Vector: ", vector[0], " ", vector[1])
     print("Angle: ", aim_rotation)
 
-    temp = normalize_angle_difference(robot_rotation(robot_positions), aim_rotation)
+    temp = normalize_angle_difference(robot.rotation, aim_rotation)
     print("To rotate: ", temp)
 
     # Calculate the distance and normalize it using the reference vector magnitude and real world distance
@@ -171,8 +207,11 @@ def normalize_angle_difference(angle1, angle2):
     return difference if difference != -180 else 180
 
 
-def robot_rotation(position):
-    return angle_of_vector(position[0][0]-position[1][0], position[0][1] - position[1][1])
+def robot_rotation(position, image_height):
+    # Convert the front and back positions to real-world coordinates
+    front_real_world = calculate_real_world_position(position[0], image_height)
+    back_real_world = calculate_real_world_position(position[1], image_height)
+    return angle_of_vector(front_real_world[0] - back_real_world[0], front_real_world[1] - back_real_world[1])
 
 
 def robot_position(front_and_back):

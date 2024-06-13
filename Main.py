@@ -84,6 +84,7 @@ def testing_environment():
     try:
         while True:
             state = render()
+            time.sleep(0.3)
     except KeyboardInterrupt:
         print("Program interrupted by user.")
     
