@@ -88,13 +88,17 @@ def testing_environment():
         print("Program interrupted by user.")
     
 
-
+def algorithm_env():
+    try:
+        test_algorithm()
+    except KeyboardInterrupt:
+        print("Algorithm test interrupted by user.")
 
 
 def main():
 
-    print("Choose mode:\n1. Real Program\n2. Testing Environment")
-    choice = input("Enter 1 or 2: ").strip()
+    print("Choose mode:\n1. Real Program\n2. Testing Environment \n3 Algorithm test")
+    choice = input("Enter 1, 2 or 3: ").strip()
     
     if choice == '1':
         print("Real program")
@@ -105,6 +109,8 @@ def main():
         real_program()
     elif choice == '2':
         testing_environment()
+    elif choice == '3':
+        algorithm_env()
     else:
         print("Invalid choice. Exiting...")
 

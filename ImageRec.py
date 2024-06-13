@@ -1,10 +1,12 @@
 import numpy as np
 import cv2
 from enum import Enum
+import matplotlib.pyplot as plt
 from scipy.stats import mode
 from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state
+import heapq
 # Capturing video through webcam
 #cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
@@ -314,8 +316,9 @@ def detect_multiple_colors_in_image(image, colors):
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
 
-    
     return ball_positions, robot_positions, goal_position, grid
+
+
 
 # Define colors and their properties
 colors = [
@@ -417,4 +420,112 @@ def render():
     return state
 
 
+'''ALGORITHM WOOW'''
+
+
+def plot_grid(grid, path, start, end):
+    fig, ax = plt.subplots()
+    rows, cols = len(grid), len(grid[0])
+
+    # Create a color map for the grid
+    cmap = plt.get_cmap('gray')
+    cmap.set_under(color='black')
+
+    # Plot the grid
+    ax.imshow(grid, cmap=cmap, vmin=0.5)
+
+    # Plot the start and end points
+    ax.scatter(start[1], start[0], color='blue', s=100, label='Robot (Start)')
+    ax.scatter(end[1], end[0], color='red', s=100, label='Ball (Goal)')
+
+    # Plot the path
+    if path:
+        path_y, path_x = zip(*path)
+        ax.plot(path_x, path_y, color='green', linewidth=2, marker='o', label='Path')
+
+    # Add grid lines
+    ax.set_xticks(range(cols))
+    ax.set_yticks(range(rows))
+    ax.grid(color='black', linestyle='-', linewidth=1)
+
+    # Set axis labels and title
+    ax.set_xticklabels(range(cols))
+    ax.set_yticklabels(range(rows))
+    ax.set_xlabel('Columns')
+    ax.set_ylabel('Rows')
+    ax.set_title('Robot Path Visualization')
+    ax.legend()
+
+    plt.gca().invert_yaxis()
+    plt.show()
+
+def test_algorithm():
+    # Define the grid with 0s for empty spaces and 1s for walls
+    grid = [
+    [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ]
+
+    # Define the robot's starting position and the ball's position
+    start = (3, 5)  # (row, column)
+    end = (0, 5)    # (row, column)
+
+    # Run the A* algorithm to find the path
+    path = a_star(grid, start, end)
+
+    # Visualize the path on the grid
+    plot_grid(grid, path, start, end)
+
+def heuristic(a, b):
+    # Using Manhattan distance as heuristic
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+def is_valid_move(grid, current, neighbor):
+    rows, cols = len(grid), len(grid[0])
+    if not (0 <= neighbor[0] < rows and 0 <= neighbor[1] < cols):
+        return False
+    if grid[neighbor[0]][neighbor[1]] == 1:
+        return False
+    if abs(current[0] - neighbor[0]) == 1 and abs(current[1] - neighbor[1]) == 1: # Diagonal movement
+        if grid[current[0]][neighbor[1]] == 1 or grid[neighbor[0]][current[1]] == 1:
+            return False
+    return True
+
+def a_star(grid, start, end):
+    rows, cols = len(grid), len(grid[0])
+    open_set = []
+    heapq.heappush(open_set, (0, start))
+    came_from = {}
+    g_score = {start: 0}
+    f_score = {start: heuristic(start, end)}
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+
+        if current == end:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start)
+            path.reverse()
+            return path
+
+        neighbors = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+        for dx, dy in neighbors:
+            neighbor = (current[0] + dx, current[1] + dy)
+            if is_valid_move(grid, current, neighbor):
+                tentative_g_score = g_score[current] + 1
+                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, end)
+                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
+
+    return None  # No path found
 
