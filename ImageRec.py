@@ -8,10 +8,10 @@ from scipy.stats import circmean
 from MovementController import next_command_from_state
 import heapq
 # Capturing video through webcam
-#cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 
-cam = cv2.VideoCapture("TrackVideos/Test_vid.mkv")
+#cam = cv2.VideoCapture("TrackVideos/Test_vid.mkv")
 
 class State:
     def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos, grid):
@@ -205,8 +205,8 @@ def hex_to_bgr(hex_color):
 
 def initialize_grid(image, grid_rows, grid_cols):
     h, w = image.shape[:2]
-    cell_height = h // grid_rows
-    cell_width = w // grid_cols
+    cell_height = h / grid_rows
+    cell_width = w / grid_cols
     return cell_height, cell_width, [[0] * grid_cols for _ in range(grid_rows)]
 
 '''Doesnt work
@@ -224,7 +224,15 @@ def update_grid_with_walls(grid, contours, cell_height, cell_width):
                     grid[i][j] = 1
                     break  # No need to check further contours for this cell
                     '''
-
+def draw_grid(image, grid, cell_height, cell_width):
+    for row in range(len(grid)):
+        for col in range(len(grid[0])):
+            top_left = (int(col * cell_width), int(row * cell_height))
+            bottom_right = (int((col + 1) * cell_width), int((row + 1) * cell_height))
+            if grid[row][col] == 1:
+                print("Wall at grid col: ", col, " and row: ", row)
+                cv2.rectangle(image, top_left, bottom_right, (255,69,0), -1)  # Fill with blue if there's a wall
+            cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 1)  # Draw the grid line
 
 def update_grid_with_obstacles(image, grid, cell_height, cell_width):
     wall_bgr_color = hex_to_bgr("ff5c0d")
@@ -238,9 +246,9 @@ def update_grid_with_obstacles(image, grid, cell_height, cell_width):
 
     for i in range(len(grid)):
         for j in range(len(grid[0])):
-            # Define how many grids around we look inside aswell
-            top_left = (max((j - 1) * cell_width, 0), (max((i - 1) * cell_height, 0)))
-            bottom_right = ((min((j + 2) * cell_width, image.shape[1])), (min((i + 2) * cell_height, image.shape[0])))
+            # Define how many grids around we look inside as well
+            top_left = (int(max((j - 1) * cell_width, 0)), int(max((i - 1) * cell_height, 0)))
+            bottom_right = (int(min((j + 2) * cell_width, image.shape[1])), int(min((i + 2) * cell_height, image.shape[0])))
             cell_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
 
             # Create a mask for the red wall color range
@@ -255,11 +263,11 @@ def update_grid_with_obstacles(image, grid, cell_height, cell_width):
 
             # If any contours are found and big enough, mark the grid cell
             for(contour) in  wall_contours:
-                if 300 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
                     grid[i][j] = 1
 
             for(contour) in egg_contours:
-                if 500 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
                   grid[i][j] = 1
 
 def detect_multiple_colors_in_image(image, colors):
@@ -268,7 +276,7 @@ def detect_multiple_colors_in_image(image, colors):
     goal_position = None
     walls = []
 
-    cell_height, cell_width, grid = initialize_grid(image, 90, 90)
+    cell_height, cell_width, grid = initialize_grid(image, 75, 75)
     
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
@@ -310,16 +318,8 @@ def detect_multiple_colors_in_image(image, colors):
     
     for pos in robot_positions:
         cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
-
-    for row in range(len(grid)):
-        for col in range(len(grid[0])):
-            # Draw the grid cell
-            top_left = (col * cell_width, row * cell_height)
-            bottom_right = ((col + 1) * cell_width, (row + 1) * cell_height)
-            if grid[row][col] == 1:
-                print("Wall at grid col: ", {col}, " and row: ", {row})
-                cv2.rectangle(image, top_left, bottom_right, (0, 0, 255), -1)  # Fill with red if there's a wall
-            cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 1)  # Draw the grid line
+    '''Darw the grid'''
+    draw_grid(image, grid, cell_height, cell_width)
 
     if not ball_positions:
         print("No balls detected.")
