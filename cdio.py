@@ -11,8 +11,8 @@ right_motor = LargeMotor(OUTPUT_A)
 brush_motor = MediumMotor(OUTPUT_C) 
 tank_drive = MoveTank(OUTPUT_D, OUTPUT_A)
 sound = Sound()
-movementSpeed = 15
-turnSpeed = 10
+movementSpeed = 70
+turnSpeed = 50
 wheel_diameter = 70  # mm
 wheel_circumference = math.pi * wheel_diameter
 wheel_distance = 170  # mm
@@ -24,7 +24,7 @@ def turn(speed, angle):
         angle = angle*-0.45
         turn_circumference = (angle / (360)) * robot_circumference
         rotations = turn_circumference / wheel_circumference
-        degrees_to_turn = rotations * 360 * 2
+        degrees_to_turn = rotations * 360
         tank_drive.on_for_degrees(SpeedPercent(-speed), SpeedPercent(speed), degrees_to_turn)
             
 

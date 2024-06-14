@@ -128,7 +128,7 @@ def next_command_from_state(state):
     if -1 < temp < 1:
         return f"move {int(np.abs(normalized_distance))}"
     else:
-        return f"turn {int(temp)}"
+        return f"turn {int(temp*2)}"
     
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
@@ -169,18 +169,18 @@ def navigate_to_goal(robot, goal_position):
             return f"move {int(np.abs(distance * 1.4))}"
         else:
             print(f"veri turn {int(temp)}")
-            return f"turn {int(temp)}"
+            return f"turn {int(temp*2)}"
     elif abs(horizontal_vector[0]) > 10:  # Then move horizontally if significant distance
         aim_rotation = angle_of_vector_t(horizontal_vector[0], horizontal_vector[1])
         distance = vector_length(horizontal_vector)
         temp = normalize_angle_difference(robot.rotation, aim_rotation)
 
-        if -1.4 < temp < 1.4:
+        if -1 < temp < 1:
             print(f"hori move {int(np.abs(distance * 1.4))}")
             return f"move {int(np.abs(distance * 1.4))}"
         else:
             print(f"hori turn {int(temp)}")
-            return f"turn {int(temp)}"
+            return f"turn {int(temp*2)}"
     
     return "cMove 0"  # If already at goal
 

@@ -357,7 +357,7 @@ colors = [
     },
     {
         'name': 'wall',
-        'hex_color': 'C60100',
+        'hex_color': 'ff5c0d',
         'tolerance': 80,
         'min_area': 500,
         'draw_color': (255, 0, 255)  # Purple
@@ -396,7 +396,7 @@ def calculate_distance(point1, point2):
 
 # Given values
 robot_real_height = 16.0  # cm
-camera_height = 189  # cm
+camera_height = 188  # cm
 field = 84
 
 
