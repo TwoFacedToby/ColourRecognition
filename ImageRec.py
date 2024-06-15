@@ -219,7 +219,65 @@ middle_points_history = deque(maxlen=100)
 
 real_world_distance = shared_state.real_world_distance
 
+'''New Grid and obstacle addition Starts here'''
+'''Create a grid over the image'''
+def initialize_grid(image, grid_rows, grid_cols):
+    h, w = image.shape[:2]
+    cell_height = h / grid_rows
+    cell_width = w / grid_cols
+    return cell_height, cell_width, [[0] * grid_cols for _ in range(grid_rows)]
 
+'''Check each grid for obstacles (wall and egg) and mark the grid_slot as 1 if there is an obstacle'''
+'''This is a bit costly, but since obstacle shouldnt move, can it be be run less frequently'''
+def update_grid_with_obstacles(image, grid, cell_height, cell_width):
+    wall_bgr_color = hex_to_bgr("ff5c0d")
+    egg_bgr_color = hex_to_bgr("FDF7F5")
+
+    wall_lower_bound = np.array([max(c - 80, 0) for c in wall_bgr_color])
+    wall_upper_bound = np.array([min(c + 80, 255) for c in wall_bgr_color])
+
+    egg_lower_bound = np.array([max(c - 20, 0) for c in egg_bgr_color])
+    egg_upper_bound = np.array([min(c + 20, 255) for c in egg_bgr_color])
+
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            # Define how many grids around we look inside as well
+            top_left = (int(max((j - 1) * cell_width, 0)), int(max((i - 1) * cell_height, 0)))
+            bottom_right = (int(min((j + 2) * cell_width, image.shape[1])), int(min((i + 2) * cell_height, image.shape[0])))
+            cell_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+
+            # Create a mask for the red wall color range
+            wall_mask = cv2.inRange(cell_image, wall_lower_bound, wall_upper_bound)
+
+            egg_mask = cv2.inRange(cell_image, egg_lower_bound, egg_upper_bound)
+
+            # Find contours in the cell image
+            wall_contours, _ = cv2.findContours(wall_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            egg_contours, _ = cv2.findContours(egg_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            # If any contours are found and big enough, mark the grid cell
+            for(contour) in  wall_contours:
+                if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                    grid[i][j] = 1
+
+            for(contour) in egg_contours:
+                if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                  grid[i][j] = 1
+
+
+'''Helper function, it is used to visualize the grid on the image'''
+def draw_grid(image, grid, cell_height, cell_width):
+    for row in range(len(grid)):
+        for col in range(len(grid[0])):
+            top_left = (int(col * cell_width), int(row * cell_height))
+            bottom_right = (int((col + 1) * cell_width), int((row + 1) * cell_height))
+            if grid[row][col] == 1:
+                #print("Wall at grid col: ", col, " and row: ", row)
+                cv2.rectangle(image, top_left, bottom_right, (255,69,0), -1)  # Fill with blue if there's a wall
+            cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 1)  # Draw the grid line
+
+'''Newly added wall and grid ends here'''
 
 def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
