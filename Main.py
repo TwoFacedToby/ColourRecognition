@@ -26,6 +26,8 @@ def real_program():
     cool = coolDownTime
     start_time = time.time()
 
+    all_grid_calc()
+
     try:
         while True:
             current_time = time.time()

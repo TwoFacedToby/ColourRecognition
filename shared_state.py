@@ -10,6 +10,14 @@ real_world_distance = 1150  # Real-world distance between the highest and lowest
 image_height = 1
 current_ball = None
 middlepoint = None
-low_x = 1
+low_x = None
 real_position_robo = None
 half_field_pixel = 1
+
+
+
+
+## Grid things
+current_grid = None
+current_cell_height = None
+current_cell_width = None

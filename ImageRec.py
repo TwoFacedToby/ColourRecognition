@@ -216,8 +216,24 @@ low_x_history = deque(maxlen=50)
 high_x_history = deque(maxlen=50)
 middle_points_history = deque(maxlen=100)
 
+# Grids for path
+grid_row = 75
+grid_col = 75
+
+glob_grid = None
 
 real_world_distance = shared_state.real_world_distance
+
+
+def all_grid_calc():
+    ret, image = cam.read() 
+    global glob_grid
+    cell_height, cell_width, glob_grid = initialize_grid(image, grid_row, grid_col)
+    update_grid_with_obstacles(image, glob_grid, cell_height, cell_width)
+    shared_state.current_cell_height = cell_height
+    shared_state.current_cell_width = cell_width
+    shared_state.current_grid = glob_grid
+
 
 '''New Grid and obstacle addition Starts here'''
 '''Create a grid over the image'''
@@ -287,6 +303,16 @@ def detect_multiple_colors_in_image(image, colors):
     wall_x_positions = []
     highest_x_point = None
     lowest_x_point = None
+    cross_positions = []
+    
+
+
+
+    # Assuming 'image' is the image array
+    height, width, _ = image.shape
+    middle_x = width // 2
+    middle_y = height // 2
+
 
     for color in colors:
         bgr_color = hex_to_bgr(color['hex_color'])
@@ -318,7 +344,12 @@ def detect_multiple_colors_in_image(image, colors):
                         wall_positions.append((cX, cY))
                         # Append all x-values from the contour to wall_x_positions
                         for point in contour:
-                            wall_x_positions.append(point[0][0])
+                            x, y = point[0]
+                            if middle_x - 80 <= x <= middle_x + 80 and middle_y - 80 <= y <= middle_y + 80:
+                                cross_positions.append((x, y))
+                            else:
+                                wall_x_positions.append(x)
+                            #print("Point: ", point)
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
 
     # Draw circles for detected ball and robot positions
@@ -385,13 +416,18 @@ def detect_multiple_colors_in_image(image, colors):
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
 
-    # Assuming 'image' is the image array
-    height, width, _ = image.shape
-    middle_x = width // 2
-    middle_y = height // 2
+    # Draw circles at the four spots around the image center
+    offsets = [(80, 80), (80, -80), (-80, 80), (-80, -80)]
+    for dx, dy in offsets:
+        cv2.circle(image, (middle_x + dx, middle_y + dy), 5, (255, 0, 255), -1)  # Purple circles
+    
 
     # Draw a circle at the exact middle of the image
     cv2.circle(image, (middle_x, middle_y), 5, (0, 255, 0), -1)  # Green circle for the middle point
+
+    # Draw circles for cross positions
+    #for pos in cross_positions:
+    #   cv2.circle(image, pos, 5, (255, 0, 0), -1)  # Purple circle for cross positions
 
     return ball_positions, robot_positions, goal_position
 

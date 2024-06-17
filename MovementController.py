@@ -79,7 +79,10 @@ def robot_rotation_old(position):
 '''Checks if a path is clear, if not it returns the grid with an obstacle in the way'''
 def is_path_clear(grid, start, end, cell_height, cell_width):
     x0, y0 = start
-    x1, y1 = end
+
+    x1 = end.x
+    y1 = end.y
+
     dx = abs(x1 - x0)
     dy = abs(y1 - y0)
     x = x0
@@ -92,11 +95,12 @@ def is_path_clear(grid, start, end, cell_height, cell_width):
     dx *= 2
     dy *= 2
 
-    for _ in range(n):
+    for _ in range(int(n)):
         grid_x = x // cell_width
         grid_y = y // cell_height
-        if grid[grid_y][grid_x] == 1:
-            return (grid_y, grid_x)  # Obstacle found at this grid
+        if grid[int(grid_y)][int(grid_x)] == 1:
+            #return (grid_y, grid_x)  # Obstacle found at this grid
+            return False
         if error > 0:
             x += x_inc
             error -= dy
@@ -223,18 +227,25 @@ def next_command_from_state(state):
     # Set the current target ball in shared_state
     shared_state.current_ball = current_target_ball
 
-    #print("Rotation: ", robot.rotation)
 
     if vector[0] == 0 and vector[1] == 0:
         return "cMove 0", None  # Return None if no balls are found
+    
+
+
+
+
+    if not is_path_clear(shared_state.current_grid, real_robo_pos, current_target_ball, shared_state.current_cell_height, shared_state.current_cell_width):
+        temp = (current_target_ball.x, current_target_ball.y)
+        path = path_around_wall(shared_state.current_grid, real_robo_pos, temp)
+        next_coord = find_next_step_passt_wall(path, shared_state.current_cell_height, shared_state.current_cell_width)
+        print("There is an obstalce. This is the next coord: ", next_coord)
+
 
     aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
 
-    #print("Vector: ", vector[0], " ", vector[1])
-    #print("Angle: ", aim_rotation)
-
     temp = normalize_angle_difference(robot.rotation, aim_rotation)
-    #print("To rotate: ", temp)
+    
 
     # Calculate the distance and normalize it using the reference vector magnitude and real world distance
     distance = vector_length(vector)
