@@ -2,7 +2,7 @@ import paramiko
 import time
 
 def create_ssh_client():
-    server = '192.168.87.29'
+    server = '192.168.171.29'
     port = 22
     user = 'robot'
     password = 'maker'

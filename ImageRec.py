@@ -357,7 +357,7 @@ colors = [
     },
     {
         'name': 'wall',
-        'hex_color': 'ff5c0d',
+        'hex_color': 'E74310',
         'tolerance': 80,
         'min_area': 500,
         'draw_color': (255, 0, 255)  # Purple
@@ -463,25 +463,28 @@ def reverse_angle(angle):
 
 def calculate_final_position(midpoint, robot_position, camera_height, end_of_field, robot_height):
     pixel_distance = math.sqrt((end_of_field[0] - midpoint[0])**2 + (end_of_field[1] - midpoint[1])**2)
+    shared_state.half_field_pixel = pixel_distance
     pixel_to_cm_ratio = calculate_pixel_to_cm_ratio(pixel_distance)
     dx = robot_position[0] - midpoint[0]
     dy = robot_position[1] - midpoint[1]
     horizontal_distance_cm = math.sqrt(dx**2 + dy**2) * pixel_to_cm_ratio
 
+
+
     b_adj = calculate_b_adj(camera_height, robot_height, horizontal_distance_cm)
 
-    print("B in cm: ", horizontal_distance_cm)
-    print("b_adj: ", b_adj)
+    #print("B in cm: ", horizontal_distance_cm)
+    #print("b_adj: ", b_adj)
 
     angle = angle_of_vector(dx, dy)
     reversed_angle = reverse_angle(angle)
 
 
-    print("Angle of vector: ", reversed_angle)
+    #print("Angle of vector: ", reversed_angle)
     rad_angle = np.deg2rad(reversed_angle)
-    print("Rad angle: ", rad_angle)
-    print("back to pixels: ", b_adj/pixel_to_cm_ratio)
-    print("84 cm in pixels: ", pixel_distance)
+    #print("Rad angle: ", rad_angle)
+    #print("back to pixels: ", b_adj/pixel_to_cm_ratio)
+    #print("84 cm in pixels: ", pixel_distance)
 
     robo_pix_distance = b_adj/pixel_to_cm_ratio
 
@@ -531,9 +534,9 @@ def render():
         cv2.circle(image, (int(robot_pos[0]), int(robot_pos[1])), 5, (255, 0, 0), -1)
         
         coords = calculate_final_position(shared_state.middlepoint, robot_pos, camera_height, shared_state.low_x, robot_real_height)
-        print("Start robo: ", robot_pos)
-        print("Middle point: ", shared_state.middlepoint[0], " ", shared_state.middlepoint[1])
-        print("My coords: ", coords)
+        #print("Start robo: ", robot_pos)
+        #print("Middle point: ", shared_state.middlepoint[0], " ", shared_state.middlepoint[1])
+        #print("My coords: ", coords)
         cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 0), -1)
 
         shared_state.real_position_robo = coords

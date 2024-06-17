@@ -22,6 +22,18 @@ class Ball:
 # Global variable to store the target ball position
 current_target_ball = None
 
+
+
+
+movementSpeed = 30
+turnSpeed = 20
+wheel_diameter = 70  # mm
+wheel_circumference = math.pi * wheel_diameter
+wheel_distance = 170  # mm
+robot_circumference = math.pi * wheel_distance
+
+
+
 def ball_is_present(target_ball, ball_positions, error_margin=5):
     """ Check if the target ball is still present within an error margin. """
     for ball in ball_positions:
@@ -106,29 +118,30 @@ def next_command_from_state(state):
     # Set the current target ball in shared_state
     shared_state.current_ball = current_target_ball
 
-    print("Rotation: ", robot.rotation)
+    #print("Rotation: ", robot.rotation)
 
     if vector[0] == 0 and vector[1] == 0:
         return "cMove 0", None  # Return None if no balls are found
 
     aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
 
-    print("Vector: ", vector[0], " ", vector[1])
-    print("Angle: ", aim_rotation)
+    #print("Vector: ", vector[0], " ", vector[1])
+    #print("Angle: ", aim_rotation)
 
     temp = normalize_angle_difference(robot.rotation, aim_rotation)
-    print("To rotate: ", temp)
+    #print("To rotate: ", temp)
 
     # Calculate the distance and normalize it using the reference vector magnitude and real world distance
     distance = vector_length(vector)
+
     print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
-    normalized_distance = (distance / shared_state.reference_vector_magnitude) * shared_state.real_world_distance
+    normalized_distance = (840/shared_state.half_field_pixel) * distance 
     print("Normalized distance: ", normalized_distance)
 
     if -1 < temp < 1:
-        return f"move {int(np.abs(normalized_distance))}"
+        return f"forward_degrees {int(forward(np.abs(normalized_distance-200)))} {movementSpeed}"
     else:
-        return f"turn {int(temp*2)}"
+        return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
     
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
@@ -164,12 +177,12 @@ def navigate_to_goal(robot, goal_position):
         distance = vector_length(vertical_vector)
         temp = normalize_angle_difference(robot.rotation, aim_rotation)
 
-        if -1.4 < temp < 1.4:
-            print(f"veri move {int(np.abs(distance * 1.4))}")
-            return f"move {int(np.abs(distance * 1.4))}"
+        if -1 < temp < 1:
+            return f"forward_degrees {int(forward(np.abs(distance*1.4)))} {movementSpeed}"
         else:
             print(f"veri turn {int(temp)}")
-            return f"turn {int(temp*2)}"
+            return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
+        
     elif abs(horizontal_vector[0]) > 10:  # Then move horizontally if significant distance
         aim_rotation = angle_of_vector_t(horizontal_vector[0], horizontal_vector[1])
         distance = vector_length(horizontal_vector)
@@ -177,10 +190,10 @@ def navigate_to_goal(robot, goal_position):
 
         if -1 < temp < 1:
             print(f"hori move {int(np.abs(distance * 1.4))}")
-            return f"move {int(np.abs(distance * 1.4))}"
+            return f"forward_degrees {int(forward(np.abs(distance*1.4)))} {movementSpeed}"
         else:
             print(f"hori turn {int(temp)}")
-            return f"turn {int(temp*2)}"
+            return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
     
     return "cMove 0"  # If already at goal
 
@@ -391,3 +404,14 @@ def nearest_neighbor_path(robot, ball_objects):
     print("PATH: ", path_positions)
 
     return path_positions
+
+def turn (angle):
+    angle = angle*-0.45
+    turn_circumference = (angle / (360)) * robot_circumference
+    rotations = turn_circumference / wheel_circumference
+    return rotations * 360
+
+
+def forward(distance):
+        rotations = distance / wheel_circumference
+        return rotations * 360

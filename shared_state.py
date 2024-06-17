@@ -11,5 +11,5 @@ image_height = 1
 current_ball = None
 middlepoint = None
 low_x = 1
-
 real_position_robo = None
+half_field_pixel = 1

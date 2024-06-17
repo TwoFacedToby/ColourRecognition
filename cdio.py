@@ -27,7 +27,12 @@ def turn(speed, angle):
         degrees_to_turn = rotations * 360
         tank_drive.on_for_degrees(SpeedPercent(-speed), SpeedPercent(speed), degrees_to_turn)
             
+def turn_by_degrees(speed, degrees):
+    tank_drive.on_for_degrees(SpeedPercent(-int(speed)), SpeedPercent(int(speed)), int(degrees))
 
+
+def forward_by_degrees(speed, degrees):
+    tank_drive.on_for_degrees(SpeedPercent(int(speed)), SpeedPercent(int(speed)), int(degrees))
 
 
 def forward(speed, distance):
@@ -141,7 +146,11 @@ def execute_order(order):
         sound.beep()
     elif order[0] == "music":
         music()
-    time.sleep(0.5)  # delay between orders
+    elif order[0] == "turn_degrees":
+        turn_by_degrees(order[2], order[1])
+    elif order[0] == "forward_degrees":
+        forward_by_degrees(order[2], order[1])
+    time.sleep(0.1)  # delay between orders
 
 def check_orders_for_stop():
     for order in orders:
@@ -154,7 +163,7 @@ def add_order(type, a, b):
     orders.append((type, a, b))
 
 def listen_for_orders():
-    print("____________\n\nReady for orders:\n\tmove <length> \n\tturn <angle>\n\tbrush <speed>\n\tcMove <speed> \n\tcTurn <speed>\n\tend\n____________")
+    print("____________\n\nReady for orders:\n\tmove <length> \n\tturn <angle>\n\tbrush <speed>\n\tcMove <speed> \n\tcTurn <speed>\n\tend\n\tforward_degrees <degrees> <speed>\n\tturn_degrees <degrees> <speed>\n____________")
     execute_order(('start', 0, 0))
     
     try:
@@ -179,6 +188,10 @@ def listen_for_orders():
                 add_order(parts[0], int(parts[1]), None)
             elif parts[0] == "move":
                 add_order(parts[0], int(parts[1]), None)
+            elif parts[0] == "forward_degrees":
+                add_order(parts[0], parts[1], parts[2])
+            elif parts[0] == "turn_degrees":
+                add_order(parts[0], parts[1], parts[2])
             elif parts[0] == "brush":
                 brush(int(parts[1]))
                 print("True")
