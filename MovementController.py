@@ -4,6 +4,8 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from itertools import permutations
 import time
+
+import ImageRec
 import shared_state
 import heapq
 
@@ -78,10 +80,13 @@ def robot_rotation_old(position):
 
 '''Checks if a path is clear, if not it returns the grid with an obstacle in the way'''
 def is_path_clear(grid, start, end, cell_height, cell_width):
-    x0, y0 = start
+    #x0, y0 = start
+    x0 = int(start[0])
+    y0 = int(start[1])
 
-    x1 = end.x
-    y1 = end.y
+
+    x1 = int(end.x)
+    y1 = int(end.y)
 
     dx = abs(x1 - x0)
     dy = abs(y1 - y0)
@@ -130,7 +135,11 @@ def is_valid_move(grid, current, neighbor): #Checks we dont go through any walls
 It does not yet take the width of the robot into acount and can "only" move in 8 directions.
 The steps are going through each grid so we translate it into an end coordinate with another function
 It takes some energy and should only be run if there is found an obstacle in the direct path'''
-def path_around_wall(grid, start, end):
+def path_around_wall(grid, starter, ender):
+
+    start = (int(starter[0]), int(starter[1]))
+    end = (int(ender[0]), int(ender[1]))
+
     rows, cols = len(grid), len(grid[0])
     open_set = []
     heapq.heappush(open_set, (0, start))
@@ -236,7 +245,7 @@ def next_command_from_state(state):
 
 
     if not is_path_clear(shared_state.current_grid, real_robo_pos, current_target_ball, shared_state.current_cell_height, shared_state.current_cell_width):
-        temp = (current_target_ball.x, current_target_ball.y)
+        temp = (int(current_target_ball.x), int(current_target_ball.y))
         path = path_around_wall(shared_state.current_grid, real_robo_pos, temp)
         next_coord = find_next_step_passt_wall(path, shared_state.current_cell_height, shared_state.current_cell_width)
         print("There is an obstalce. This is the next coord: ", next_coord)

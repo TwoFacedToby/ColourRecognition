@@ -6,9 +6,10 @@ from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state, robot_position, robot_front_and_back, shortest_vector_with_index, vector_from_robot_to_next_ball
 # Capturing video through webcam
-cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+# cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture("TrackVideos/Kenneth.mp4")
 cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
-from sklearn.cluster import DBSCAN
+# from sklearn.cluster import DBSCAN
 from collections import Counter, deque
 import shared_state
 import math
@@ -246,7 +247,7 @@ def initialize_grid(image, grid_rows, grid_cols):
 '''Check each grid for obstacles (wall and egg) and mark the grid_slot as 1 if there is an obstacle'''
 '''This is a bit costly, but since obstacle shouldnt move, can it be be run less frequently'''
 def update_grid_with_obstacles(image, grid, cell_height, cell_width):
-    wall_bgr_color = hex_to_bgr("ff5c0d")
+    wall_bgr_color = hex_to_bgr("E74310")
     egg_bgr_color = hex_to_bgr("FDF7F5")
 
     wall_lower_bound = np.array([max(c - 80, 0) for c in wall_bgr_color])
@@ -274,7 +275,7 @@ def update_grid_with_obstacles(image, grid, cell_height, cell_width):
 
             # If any contours are found and big enough, mark the grid cell
             for(contour) in  wall_contours:
-                if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                if 50 <= cv2.contourArea(contour): #Adjust these numbers as needed
                     grid[i][j] = 1
 
             for(contour) in egg_contours:
@@ -593,6 +594,7 @@ print(calculate_b_adj(187.5, 16, 84))
 def render():
     reset()  # Assuming reset() is defined elsewhere
     ret, image = cam.read()  # Reading Images
+
     if not ret:
         print("Error: Failed to read frame.")
         return None
@@ -642,8 +644,18 @@ def render():
 
     calculate_final_position
 
+
+
+    # Get the width and height of the frame
+    height, width, _ = image.shape
+
+    # Create a named window with the frame size
+    cv2.namedWindow('Frame', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('Frame', width, height)
+
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
 
