@@ -5,6 +5,8 @@ from scipy.spatial.distance import cdist
 from itertools import permutations
 import time
 import shared_state
+import heapq
+
 
 class Robot:
     def __init__(self, x, y, rotation):
