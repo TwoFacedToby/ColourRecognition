@@ -235,7 +235,7 @@ def draw_grid(image, grid, cell_height, cell_width):
             cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 1)  # Draw the grid line
 
 def update_grid_with_obstacles(image, grid, cell_height, cell_width):
-    wall_bgr_color = hex_to_bgr("ff5c0d")
+    wall_bgr_color = hex_to_bgr("E74310")
     egg_bgr_color = hex_to_bgr("FDF7F5")
 
     wall_lower_bound = np.array([max(c - 80, 0) for c in wall_bgr_color])
@@ -263,7 +263,7 @@ def update_grid_with_obstacles(image, grid, cell_height, cell_width):
 
             # If any contours are found and big enough, mark the grid cell
             for(contour) in  wall_contours:
-                if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
+                if 50 <= cv2.contourArea(contour): #Adjust these numbers as needed
                     grid[i][j] = 1
 
             for(contour) in egg_contours:
