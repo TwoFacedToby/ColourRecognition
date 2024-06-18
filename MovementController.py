@@ -163,6 +163,15 @@ def path_around_wall(grid, start, end):
 
     return None  # No path found
 
+
+
+# Define global variables to keep track of the state and vectors
+global_step = 0
+V_parallel = None
+V_perpendicular = None
+vectors_initialized = False
+
+
 '''This is a helper function it turns the path from path_around_wall and turns it into
 an end coordinate, specificly the last grid spot before the robot needs to turn.'''
 def find_next_step_passt_wall(path, cell_height, cell_width):
@@ -183,6 +192,7 @@ def find_next_step_passt_wall(path, cell_height, cell_width):
 
 def next_command_from_state(state):
     global current_target_ball
+    global global_step
 
     robot_positions = robot_front_and_back(state.robot)
     if robot_positions is None:
@@ -207,9 +217,13 @@ def next_command_from_state(state):
         vector = vector_from_robot_to_next_ball(robot, current_target_ball)
         closest_ball_coords = (current_target_ball.x, current_target_ball.y)
         print("Still targeting the same ball")
+    elif global_step == 2:
+        print("Dont wait for backing")
     else:
         current_target_ball = None  # Reset if the ball is no longer present
 
+   
+    
     if current_target_ball is None:
         print("Finding new ball!")
         if len(ball_vectors) == 1:
@@ -224,22 +238,94 @@ def next_command_from_state(state):
             print("Navigating to goal!")
             return navigate_to_goal(robot, state.big_goal_pos)
         
-    # Set the current target ball in shared_state
+
+    
     shared_state.current_ball = current_target_ball
 
+    
 
-    if vector[0] == 0 and vector[1] == 0:
-        return "cMove 0", None  # Return None if no balls are found
+
+    
     
 
 
 
-
+    '''
     if not is_path_clear(shared_state.current_grid, real_robo_pos, current_target_ball, shared_state.current_cell_height, shared_state.current_cell_width):
         temp = (current_target_ball.x, current_target_ball.y)
         path = path_around_wall(shared_state.current_grid, real_robo_pos, temp)
         next_coord = find_next_step_passt_wall(path, shared_state.current_cell_height, shared_state.current_cell_width)
         print("There is an obstalce. This is the next coord: ", next_coord)
+    '''
+
+    wall_prox = check_wall_proximity(current_target_ball.x, current_target_ball.y)
+
+    
+    print("Wall prox: ", wall_prox)
+    
+
+
+    if wall_prox or global_step == 2:
+        global V_parallel, V_perpendicular, vectors_initialized
+
+        if not vectors_initialized:
+            closest_wall, V_parallel, V_perpendicular = handle_ball_near_wall(current_target_ball.x, current_target_ball.y, vector)
+            vectors_initialized = True
+
+        if global_step == 0:
+            # Perform the initial action for step 0
+            vector = V_parallel
+            aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+            temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+            print("Vector: ", -vector[0], -vector[1])
+            print("Rot", aim_rotation)
+
+            # Calculate the distance and normalize it using the reference vector magnitude and real world distance
+            distance = vector_length(vector)
+            normalized_distance = (840/shared_state.half_field_pixel) * distance
+
+            if -1 < temp < 1:
+                print("step 1 action: forward")
+                global_step = 1
+                return f"forward_degrees {int(forward(normalized_distance - 40))} {movementSpeed}"
+            else:
+                print("step 1 action: turn")
+                return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
+        elif global_step == 1:
+            aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+            temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+            # Calculate the distance and normalize it using the reference vector magnitude and real world distance
+            distance = vector_length(vector)
+            normalized_distance = (840/shared_state.half_field_pixel) * distance
+
+            if -1 < temp < 1:
+                print("step 2 action: forward")
+                global_step = 2
+                return f"forward_degrees {int(forward(normalized_distance-150))} {movementSpeed}"
+            else:
+                print("step 2 action: turn")
+                return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
+        elif global_step == 2:
+            print("HALLO")
+            vector = V_perpendicular
+
+            # Calculate the distance and normalize it using the reference vector magnitude and real world distance
+            distance = vector_length(vector)
+            normalized_distance = (840/shared_state.half_field_pixel) * -distance
+
+            distance_tweak = normalized_distance + 250
+            
+            print("step 3 action: backward")
+            print("DISTANCE: ", normalized_distance)
+            global_step = 0  # Reset the state
+            vectors_initialized = False  # Reset the initialization flag
+            return f"forward_degrees {int(forward(distance_tweak))} {movementSpeed}"
+            
+
 
 
     aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
@@ -250,15 +336,108 @@ def next_command_from_state(state):
     # Calculate the distance and normalize it using the reference vector magnitude and real world distance
     distance = vector_length(vector)
 
-    print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
+    #print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
     normalized_distance = (840/shared_state.half_field_pixel) * distance 
-    print("Normalized distance: ", normalized_distance)
+    #print("Normalized distance: ", normalized_distance)
 
     if -1 < temp < 1:
-        return f"forward_degrees {int(forward(np.abs(normalized_distance-200)))} {movementSpeed}"
+        return f"forward_degrees {int(forward(normalized_distance-200))} {movementSpeed}"
     else:
         return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
+
+
+
+def decompose_vector(vector, wall_orientation):
+    """
+    Decomposes the given vector into two perpendicular components 
+    based on the wall orientation.
+
+    Parameters:
+    - vector: A tuple (Vx, Vy) representing the vector.
+    - wall_orientation: 'vertical' or 'horizontal' indicating the orientation of the wall.
+
+    Returns:
+    - (V_parallel, V_perpendicular): Two vectors representing the components parallel and perpendicular to the wall.
+    """
+    Vx, Vy = vector
     
+    if wall_orientation == 'vertical':
+        # Wall is vertical, so parallel component is horizontal
+        V_parallel = (0, Vy)
+        V_perpendicular = (Vx, 0)
+    elif wall_orientation == 'horizontal':
+        # Wall is horizontal, so parallel component is vertical
+        V_parallel = (Vx, 0)
+        V_perpendicular = (0, Vy)
+    else:
+        raise ValueError("wall_orientation must be 'vertical' or 'horizontal'")
+    
+    return V_parallel, V_perpendicular
+
+def check_wall_proximity(ball_x, ball_y, threshold=40):
+    """
+    Checks which wall the ball is closest to within a given threshold.
+    
+    Parameters:
+    - ball_x: x-coordinate of the ball.
+    - ball_y: y-coordinate of the ball.
+    - left_wall_x: x-coordinate of the left wall.
+    - right_wall_x: x-coordinate of the right wall.
+    - top_wall_y: y-coordinate of the top wall.
+    - bottom_wall_y: y-coordinate of the bottom wall.
+    - threshold: Distance threshold to consider the ball close to the wall (default is 40 pixels).
+    
+    Returns:
+    - A string indicating which wall the ball is closest to, or None if it's not close to any wall.
+    """
+    if abs(ball_x - shared_state.left_wall) <= threshold:
+        print("left")
+        return 'left'
+    elif abs(ball_x - shared_state.right_wall) <= threshold:
+        print("right")
+        return 'right'
+    elif abs(ball_y - shared_state.upper_wall) <= threshold:
+        print("top")
+        return 'top'
+    elif abs(ball_y - shared_state.lower_wall) <= threshold:
+        print("bottom")
+        return 'bottom'
+    else:
+        return None
+
+def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
+    """
+    Determines the closest wall and decomposes the ball's movement vector accordingly.
+    
+    Parameters:
+    - ball_x: x-coordinate of the ball.
+    - ball_y: y-coordinate of the ball.
+    - vector: A tuple (Vx, Vy) representing the ball's current movement vector.
+    - left_wall_x: x-coordinate of the left wall.
+    - right_wall_x: x-coordinate of the right wall.
+    - top_wall_y: y-coordinate of the top wall.
+    - bottom_wall_y: y-coordinate of the bottom wall.
+    - threshold: Distance threshold to consider the ball close to the wall (default is 40 pixels).
+    
+    Returns:
+    - A tuple containing the closest wall and the decomposed vectors (V_parallel, V_perpendicular).
+    """
+    closest_wall = check_wall_proximity(ball_x, ball_y, threshold)
+    
+    if closest_wall:
+        if closest_wall in ['left', 'right']:
+            wall_orientation = 'vertical'
+        elif closest_wall in ['top', 'bottom']:
+            wall_orientation = 'horizontal'
+        
+        V_parallel, V_perpendicular = decompose_vector(vector, wall_orientation)
+        return closest_wall, V_parallel, V_perpendicular
+    else:
+        return None, None, None
+
+
+
+
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
     return np.linalg.norm(np.array(point1) - np.array(point2))

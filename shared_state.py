@@ -11,6 +11,7 @@ image_height = 1
 current_ball = None
 middlepoint = None
 low_x = None
+high_x = None
 real_position_robo = None
 half_field_pixel = 1
 
@@ -21,3 +22,9 @@ half_field_pixel = 1
 current_grid = None
 current_cell_height = None
 current_cell_width = None
+
+## Wall values
+lower_wall = None
+upper_wall = None
+right_wall = None
+left_wall = None

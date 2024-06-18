@@ -304,6 +304,9 @@ def detect_multiple_colors_in_image(image, colors):
     highest_x_point = None
     lowest_x_point = None
     cross_positions = []
+    wall_y_positions = []
+    low_y_history = []
+    high_y_history = []
     
 
 
@@ -349,6 +352,7 @@ def detect_multiple_colors_in_image(image, colors):
                                 cross_positions.append((x, y))
                             else:
                                 wall_x_positions.append(x)
+                                wall_y_positions.append(y)
                             #print("Point: ", point)
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
 
@@ -398,6 +402,7 @@ def detect_multiple_colors_in_image(image, colors):
         low_x_history.append(most_common_low_x)
         stable_low_x = int(np.mean(low_x_history))
         lowest_x_with_center_y = (stable_low_x, most_common_middle_point[1])
+        shared_state.left_wall = stable_low_x
         shared_state.low_x = lowest_x_with_center_y
         cv2.circle(image, lowest_x_with_center_y, 5, (0, 0, 0), -1)  # Black dot for the most common low x with center y
 
@@ -406,7 +411,32 @@ def detect_multiple_colors_in_image(image, colors):
         high_x_history.append(most_common_high_x)
         stable_high_x = int(np.mean(high_x_history))
         highest_x_with_center_y = (stable_high_x, most_common_middle_point[1])
+        shared_state.right_wall = stable_high_x
         cv2.circle(image, highest_x_with_center_y, 5, (0, 0, 0), -1)  # Black dot for the most common high x with center y
+
+
+    # Filter y-values for the desired ranges
+    low_y_values = [y for y in wall_y_positions if y < 100]
+    high_y_values = [y for y in wall_y_positions if y > 300]
+
+    # Find the most common y-value in each range
+    if low_y_values:
+        most_common_low_y = Counter(low_y_values).most_common(1)[0][0]
+        low_y_history.append(most_common_low_y)
+        stable_low_y = int(np.mean(low_y_history))
+        lowest_y_with_center_x = (most_common_middle_point[0], stable_low_y)
+        shared_state.upper_wall = stable_low_y
+        shared_state.low_y = lowest_y_with_center_x
+        cv2.circle(image, lowest_y_with_center_x, 5, (0, 0, 0), -1)  # Black dot for the most common low y with center x
+
+    if high_y_values:
+        most_common_high_y = Counter(high_y_values).most_common(1)[0][0]
+        high_y_history.append(most_common_high_y)
+        stable_high_y = int(np.mean(high_y_history))
+        highest_y_with_center_x = (most_common_middle_point[0], stable_high_y)
+        shared_state.lower_wall = stable_high_y
+        shared_state.high_y = highest_y_with_center_x
+        cv2.circle(image, highest_y_with_center_x, 5, (0, 0, 0), -1)    
 
     # Calculate the reference vector magnitude
     if lowest_x_with_center_y and highest_x_with_center_y:
@@ -417,9 +447,9 @@ def detect_multiple_colors_in_image(image, colors):
     robot_positions = robot_positions[:3]
 
     # Draw circles at the four spots around the image center
-    offsets = [(80, 80), (80, -80), (-80, 80), (-80, -80)]
-    for dx, dy in offsets:
-        cv2.circle(image, (middle_x + dx, middle_y + dy), 5, (255, 0, 255), -1)  # Purple circles
+    #offsets = [(80, 80), (80, -80), (-80, 80), (-80, -80)]
+    #for dx, dy in offsets:
+        #cv2.circle(image, (middle_x + dx, middle_y + dy), 5, (255, 0, 255), -1)  # Purple circles
     
 
     # Draw a circle at the exact middle of the image
@@ -490,7 +520,7 @@ def calculate_distance(point1, point2):
 
 # Given values
 robot_real_height = 16.0  # cm
-camera_height = 188  # cm
+camera_height = 189  # cm
 field = 84
 
 
