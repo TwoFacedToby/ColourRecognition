@@ -1,12 +1,7 @@
 import keyboard
 
 from ImageRec import *
-from MovementController import (
-    next_command_from_state,
-    extract_ball_positions,
-    find_shortest_path,
-    nearest_neighbor_path,
-)
+from MovementController import next_command_from_state, extract_ball_positions, find_shortest_path, nearest_neighbor_path
 from RobotConnection import create_ssh_client, create_shell, send_command_via_shell
 import time
 import threading

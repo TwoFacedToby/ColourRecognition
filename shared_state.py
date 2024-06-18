@@ -12,9 +12,10 @@ current_ball = None
 middlepoint = None
 low_x = None
 high_x = None
-real_position_robo = None
+real_position_robo = (1, 1)
 half_field_pixel = 1
 
+image = None
 
 
 
@@ -28,3 +29,11 @@ lower_wall = None
 upper_wall = None
 right_wall = None
 left_wall = None
+
+
+## Cross-values
+cross_middle = None
+cross_top_left = None
+cross_top_right = None
+cross_bottom_left = None
+cross_bottom_right = None

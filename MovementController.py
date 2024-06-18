@@ -6,6 +6,7 @@ from itertools import permutations
 import time
 import shared_state
 import heapq
+import cv2
 
 
 class Robot:
@@ -190,6 +191,115 @@ def find_next_step_passt_wall(path, cell_height, cell_width):
 
 '''End of new functions for wall avoidance'''
 
+def vector_between_points(point1, point2):
+    """ Calculate the vector between two points (x, y). """
+    return np.array([point1[0] - point2[0], point1[1] - point2[1]])
+
+def vector_intersects_box(robot_position, vector, box_center, box_width, robot_width):
+    box_left = int(box_center[0] - box_width // 2)
+    box_right = int(box_center[0] + box_width // 2)
+    box_top = int(box_center[1] - box_width // 2)
+    box_bottom = int(box_center[1] + box_width // 2)
+
+    def line_intersects_line(p1, p2, p3, p4):
+        # Check if line segments (p1, p2) and (p3, p4) intersect
+        def ccw(A, B, C):
+            return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+        return ccw(p1, p3, p4) != ccw(p2, p3, p4) and ccw(p1, p2, p3) != ccw(p1, p2, p4)
+
+    # Calculate the target position based on the vector
+    target_position = (int(robot_position[0] - vector[0]), int(robot_position[1] - vector[1]))
+
+    # Calculate perpendicular offset for the robot's width
+    vector_magnitude = np.sqrt(vector[0]**2 + vector[1]**2)
+    offset_x = (robot_width / 2) * (vector[1] / vector_magnitude)
+    offset_y = (robot_width / 2) * (vector[0] / vector_magnitude)
+
+    # Calculate the positions of the parallel lines (edges of the robot)
+    left_robot_position = (robot_position[0] - offset_x, robot_position[1] + offset_y)
+    right_robot_position = (robot_position[0] + offset_x, robot_position[1] - offset_y)
+    left_target_position = (target_position[0] - offset_x, target_position[1] + offset_y)
+    right_target_position = (target_position[0] + offset_x, target_position[1] - offset_y)
+
+    # Define the corners of the bounding box
+    top_left = (box_left, box_top)
+    top_right = (box_right, box_top)
+    bottom_left = (box_left, box_bottom)
+    bottom_right = (box_right, box_bottom)
+
+    # Debug print statements
+    print(f"Robot Position: {robot_position}")
+    print(f"Target Position: {target_position}")
+    print(f"Bounding Box: {top_left}, {top_right}, {bottom_left}, {bottom_right}")
+
+    #cv2.rectangle(shared_state.image, top_left, bottom_right, (0, 255, 0), 2) 
+    #cv2.line(shared_state.image, tuple(map(int, left_robot_position)), tuple(map(int, left_target_position)), (255, 0, 0), 2)  # Blue line for the left edge
+    #cv2.line(shared_state.image, tuple(map(int, right_robot_position)), tuple(map(int, right_target_position)), (255, 0, 0), 2)  # Blue line for the right edge
+
+
+    #cv2.imshow('Image', shared_state.image)
+    #cv2.waitKey(0)  # Wait indefinitely for a key press
+    #cv2.destroyAllWindows()
+
+    
+
+    # Check if either of the lines intersects any of the box's sides
+    if (line_intersects_line(left_robot_position, left_target_position, top_left, top_right) or
+        line_intersects_line(left_robot_position, left_target_position, top_right, bottom_right) or
+        line_intersects_line(left_robot_position, left_target_position, bottom_right, bottom_left) or
+        line_intersects_line(left_robot_position, left_target_position, bottom_left, top_left) or
+        line_intersects_line(right_robot_position, right_target_position, top_left, top_right) or
+        line_intersects_line(right_robot_position, right_target_position, top_right, bottom_right) or
+        line_intersects_line(right_robot_position, right_target_position, bottom_right, bottom_left) or
+        line_intersects_line(right_robot_position, right_target_position, bottom_left, top_left)):
+        print("The robot's path intersects with the cross.")
+        return True
+
+    print("The robot's path does not intersect with the cross.")
+    return False
+
+
+def find_next_safe_point(robot_position, ball_position, box_center, box_width, robot_width):
+    # Access cross positions directly from shared_state
+    cross_positions = {
+        'top_left': shared_state.cross_top_left,
+        'top_right': shared_state.cross_top_right,
+        'bottom_left': shared_state.cross_bottom_left,
+        'bottom_right': shared_state.cross_bottom_right
+    }
+
+    # Calculate the distances from the ball to each cross position
+    distances_to_ball = {
+        'top_left': np.linalg.norm(np.array(ball_position) - np.array(cross_positions['top_left'])),
+        'top_right': np.linalg.norm(np.array(ball_position) - np.array(cross_positions['top_right'])),
+        'bottom_left': np.linalg.norm(np.array(ball_position) - np.array(cross_positions['bottom_left'])),
+        'bottom_right': np.linalg.norm(np.array(ball_position) - np.array(cross_positions['bottom_right'])),
+    }
+
+    # Sort the cross positions by distance to the ball
+    sorted_cross_positions = sorted(distances_to_ball.items(), key=lambda item: item[1])
+
+    # Find the next safe point for the robot
+    for pos_name, _ in sorted_cross_positions:
+        safe_point = cross_positions[pos_name]
+        
+        # Calculate the vector for the robot's path
+        vector_to_safe_point = vector_between_points(robot_position, safe_point)
+        
+        
+
+        # Check if the path to the safe point intersects with the cross box
+        if not vector_intersects_box(robot_position, vector_to_safe_point, box_center, box_width, robot_width):
+            print(cross_positions)
+            print("Next point to go to: ", safe_point)
+            return vector_to_safe_point, safe_point
+
+    return None  # Return None if no safe point is found
+
+
+
+
 def next_command_from_state(state):
     global current_target_ball
     global global_step
@@ -242,11 +352,38 @@ def next_command_from_state(state):
     
     shared_state.current_ball = current_target_ball
 
+    print("Current target ball: ", closest_ball_coords)
+
+    if not current_target_ball:
+        return "forward_degrees 0 0"
+
+    temp_vec = vector_between_points(shared_state.real_position_robo, closest_ball_coords)
+
+    if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 40):
+
+        print("Robot will find next safe point")
+        vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 40)
+
+        vector = vector_to_safe_point
+
+        aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+
+        temp = normalize_angle_difference(robot.rotation, aim_rotation)
     
 
+        # Calculate the distance and normalize it using the reference vector magnitude and real world distance
+        distance = vector_length(vector)
 
-    
-    
+        #print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
+        normalized_distance = (840/shared_state.half_field_pixel) * distance 
+        #print("Normalized distance: ", normalized_distance)
+
+        if -1 < temp < 1:
+            return f"forward_degrees {int(forward(normalized_distance-100))} {movementSpeed}"
+        else:
+            return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
+
+
 
 
 
@@ -341,7 +478,7 @@ def next_command_from_state(state):
     #print("Normalized distance: ", normalized_distance)
 
     if -1 < temp < 1:
-        return f"forward_degrees {int(forward(normalized_distance-200))} {movementSpeed}"
+        return f"forward_degrees {int(forward(normalized_distance-180))} {movementSpeed}"
     else:
         return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
 
@@ -442,6 +579,10 @@ def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
     return np.linalg.norm(np.array(point1) - np.array(point2))
 
+
+
+import numpy as np
+
 def navigate_to_goal(robot, goal_position):
     if not goal_position:
         return "cMove 0"  # No goal position available
@@ -449,15 +590,14 @@ def navigate_to_goal(robot, goal_position):
     robot_x, robot_y = robot.x, robot.y
     goal_x, goal_y = goal_position
 
-    
-
     # Calculate the distance to the goal
     distance_to_goal = calculate_distance((robot_x, robot_y), goal_position)
 
+    normalized_goal_distance = (840 / shared_state.half_field_pixel) * distance_to_goal
 
-    print("Distance to goal: ", distance_to_goal)
+    print("Distance to goal: ", normalized_goal_distance)
 
-    if distance_to_goal <= 110:
+    if normalized_goal_distance <= 360:
         print("Robot is at the goal.")
         print()
         return "brush 80"
@@ -466,31 +606,64 @@ def navigate_to_goal(robot, goal_position):
     vertical_vector = np.array([0, goal_y - robot_y])
     horizontal_vector = np.array([goal_x - robot_x, 0])
 
-    print("vv", vertical_vector[1])
-    if abs(vertical_vector[1]) > 30:  # Move vertically first if significant distance
+    
+
+    # Check if the robot's x position is lower than cross_top_right or cross_bottom_right
+    if robot_x < shared_state.cross_top_right[0] or robot_x < shared_state.cross_bottom_right[0]:
+        # Determine the closest horizontal alignment point (cross_top_right or cross_bottom_right)
+        print("Finding safe point")
+        if abs(shared_state.cross_top_right[0] - robot_x) < abs(shared_state.cross_bottom_right[0] - robot_x):
+            target_x = shared_state.cross_top_right[0]
+        else:
+            target_x = shared_state.cross_bottom_right[0]
+
+        horizontal_vector_to_align = np.array([target_x - robot_x, 0])
+        aim_rotation = angle_of_vector_t(horizontal_vector_to_align[0], horizontal_vector_to_align[1])
+        distance = vector_length(horizontal_vector_to_align)
+        temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+        normalized_distance = (840 / shared_state.half_field_pixel) * distance
+
+        if -1 < temp < 1:
+            return f"forward_degrees {int(forward(normalized_distance))} {movementSpeed}"
+        else:
+            print(f"hori turn {int(temp)}")
+            return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
+    # If already aligned horizontally or no horizontal alignment needed, move vertically
+    if abs(vertical_vector[1]) > 30:  # Move vertically if significant distance
+        print("vv", vertical_vector[1])
         aim_rotation = angle_of_vector_t(vertical_vector[0], vertical_vector[1])
         distance = vector_length(vertical_vector)
         temp = normalize_angle_difference(robot.rotation, aim_rotation)
 
+        normalized_distance = (840 / shared_state.half_field_pixel) * distance
+
         if -1 < temp < 1:
-            return f"forward_degrees {int(forward(np.abs(distance*1.4)))} {movementSpeed}"
+            return f"forward_degrees {int(forward(normalized_distance))} {movementSpeed}"
         else:
             print(f"veri turn {int(temp)}")
-            return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
-        
-    elif abs(horizontal_vector[0]) > 10:  # Then move horizontally if significant distance
+            return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
+    # If no significant vertical movement, then move horizontally if significant distance
+    if abs(horizontal_vector[0]) > 10:
+        print("hh", horizontal_vector[0])
         aim_rotation = angle_of_vector_t(horizontal_vector[0], horizontal_vector[1])
         distance = vector_length(horizontal_vector)
         temp = normalize_angle_difference(robot.rotation, aim_rotation)
 
+        normalized_distance = (840 / shared_state.half_field_pixel) * distance
+
         if -1 < temp < 1:
-            print(f"hori move {int(np.abs(distance * 1.4))}")
-            return f"forward_degrees {int(forward(np.abs(distance*1.4)))} {movementSpeed}"
+            print(f"hori move {int(normalized_distance)}")
+            return f"forward_degrees {int(forward(normalized_distance-200))} {movementSpeed}"
         else:
             print(f"hori turn {int(temp)}")
-            return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
-    
+            return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
     return "cMove 0"  # If already at goal
+
+
 
 def get_all_ball_positions(ball_states):
     """
