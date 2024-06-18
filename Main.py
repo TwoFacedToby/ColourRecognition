@@ -70,6 +70,8 @@ def real_program():
                     print(command)  # send_command_via_shell(shell, command)
                     if ssh_client is not None and shell is not None:
                         send_command_via_shell(shell, command)
+                        if command == "brush 80":
+                            time.sleep(10)
 
             else:
                 cool -= 1

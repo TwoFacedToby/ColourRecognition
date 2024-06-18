@@ -472,7 +472,7 @@ def next_command_from_state(state):
     #print("Normalized distance: ", normalized_distance)
 
     if -1 < temp < 1:
-        return f"forward_degrees {int(forward(normalized_distance-180))} {movementSpeed}"
+        return f"forward_degrees {int(forward(normalized_distance-160))} {movementSpeed}"
     else:
         return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
 
