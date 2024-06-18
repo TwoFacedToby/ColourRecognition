@@ -354,46 +354,40 @@ def next_command_from_state(state):
 
     print("Current target ball: ", closest_ball_coords)
 
-    if not current_target_ball:
-        return "forward_degrees 0 0"
+   
+    
+    temp_vec = None
 
-    temp_vec = vector_between_points(shared_state.real_position_robo, closest_ball_coords)
+    if closest_ball_coords:
+        temp_vec = vector_between_points(shared_state.real_position_robo, closest_ball_coords)
 
-    if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 40):
+    if closest_ball_coords:
 
-        print("Robot will find next safe point")
-        vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 40)
 
-        vector = vector_to_safe_point
+        if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 40):
 
-        aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+            print("Robot will find next safe point")
+            vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 40)
 
-        temp = normalize_angle_difference(robot.rotation, aim_rotation)
+            vector = vector_to_safe_point
+
+            aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+
+            temp = normalize_angle_difference(robot.rotation, aim_rotation)
     
 
-        # Calculate the distance and normalize it using the reference vector magnitude and real world distance
-        distance = vector_length(vector)
+            # Calculate the distance and normalize it using the reference vector magnitude and real world distance
+            distance = vector_length(vector)
 
-        #print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
-        normalized_distance = (840/shared_state.half_field_pixel) * distance 
-        #print("Normalized distance: ", normalized_distance)
+            #print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
+            normalized_distance = (840/shared_state.half_field_pixel) * distance 
+            #print("Normalized distance: ", normalized_distance)
 
-        if -1 < temp < 1:
-            return f"forward_degrees {int(forward(normalized_distance-100))} {movementSpeed}"
-        else:
-            return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
+            if -1 < temp < 1:
+                return f"forward_degrees {int(forward(normalized_distance-100))} {movementSpeed}"
+            else:
+                return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
 
-
-
-
-
-    '''
-    if not is_path_clear(shared_state.current_grid, real_robo_pos, current_target_ball, shared_state.current_cell_height, shared_state.current_cell_width):
-        temp = (current_target_ball.x, current_target_ball.y)
-        path = path_around_wall(shared_state.current_grid, real_robo_pos, temp)
-        next_coord = find_next_step_passt_wall(path, shared_state.current_cell_height, shared_state.current_cell_width)
-        print("There is an obstalce. This is the next coord: ", next_coord)
-    '''
 
     wall_prox = check_wall_proximity(current_target_ball.x, current_target_ball.y)
 

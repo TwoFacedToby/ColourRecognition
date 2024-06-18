@@ -625,7 +625,7 @@ colors = [
     {
         'name': 'balls',
         'hex_color': 'FDF7F5',
-        'tolerance': 50,
+        'tolerance': 80,
         'min_area': 50,
         'max_area': 200,
         'draw_color': (0, 255, 0)  # Green
