@@ -626,7 +626,7 @@ colors = [
     {
         'name': 'balls',
         'hex_color': 'E3EDFF',
-        'tolerance': 65,
+        'tolerance': 55,
         'min_area': 50,
         'max_area': 150,
         'draw_color': (0, 255, 0)  # Green
@@ -644,12 +644,13 @@ colors = [
         'hex_color': 'BC404C',
         'tolerance': 50,
         'min_area': 200,
+        'max_area':1000000,
         'draw_color': (255, 0, 255)  # Purple
     },
     {
         'name': 'robot',
-        'hex_color': '1DA49D',
-        'tolerance': 45,
+        'hex_color': '01ACC1',
+        'tolerance': 60,
         'min_area': 100,
         'max_area': 700,
         'draw_color': (255, 0, 0)  # Blue
@@ -680,8 +681,8 @@ def calculate_distance(point1, point2):
 
 
 # Given values
-robot_real_height = 16.0  # cm
-camera_height = 188  # cm
+robot_real_height = 17.0  # cm
+camera_height = 187  # cm
 field = 84
 
 
@@ -826,7 +827,9 @@ def render():
         #print("Start robo: ", robot_pos)
         #print("Middle point: ", shared_state.middlepoint[0], " ", shared_state.middlepoint[1])
         #print("My coords: ", coords)
-        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 0), -1)
+        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 255), -1)
+
+
 
         shared_state.real_position_robo = coords
 
@@ -834,7 +837,8 @@ def render():
         robot_center = robot_positions[0]  # Use the first robot position as the center
         distance_to_goal = calculate_distance(robot_center, goal_position)
 
-
+    calculate_final_position
+    
 
     
     # Display the frame with contours and circles

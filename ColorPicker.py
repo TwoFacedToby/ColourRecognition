@@ -9,60 +9,60 @@ from tkinter import ttk
 import threading
 
 # Camera
-# cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-# cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
+cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 
 # Video
-cam = cv2.VideoCapture("TrackVideos/new_room_new_video.mp4")
+#cam = cv2.VideoCapture("TrackVideos/new_room_new_video.mp4")
 
 colors = [
     {
         'name': 'balls',
-        'hex_color': 'FDF7F5',
-        'tolerance': 80,
+        'hex_color': 'E3EDFF',
+        'tolerance': 55,
         'min_area': 50,
-        'max_area': 200,
+        'max_area': 150,
         'draw_color': (0, 255, 0)  # Green
     },
     {
         'name': 'egg',
         'hex_color': 'FDF7F5',
         'tolerance': 20,
-        'min_area': 300,
+        'min_area' : 300,
         'max_area': 1000,
-        'draw_color': (0, 0, 255)
+        'draw_color': (0, 0, 255) 
     },
     {
         'name': 'wall',
-        'hex_color': 'F03A26',
-        'tolerance': 70,
-        'min_area': 500,
-        'max_area': 0,
+        'hex_color': 'BC404C',
+        'tolerance': 50,
+        'min_area': 200,
+        'max_area':1000000,
         'draw_color': (255, 0, 255)  # Purple
     },
     {
         'name': 'robot',
-        'hex_color': '9AD9BB',
-        'tolerance': 45,
-        'min_area': 400,
-        'max_area': 800,
+        'hex_color': '1DA49D',
+        'tolerance': 40,
+        'min_area': 100,
+        'max_area': 700,
         'draw_color': (255, 0, 0)  # Blue
     },
     {
         'name': 'goal',
-        'hex_color': 'ADA0BD',
-        'tolerance': 20,
+        'hex_color': 'FEFBBD',
+        'tolerance': 30,
         'min_area': 50,
         'max_area': 500,
         'draw_color': (0, 0, 0)  # Black
-    },
+    },  
     {
         'name': 'orange_balls',
         'hex_color': 'FE9546',
         'tolerance': 30,
         'min_area': 50,
         'max_area': 300,
-        'draw_color': (0, 255, 255)
+        'draw_color': (0, 255, 255)  
     }
 ]
 
@@ -350,12 +350,10 @@ def render():
         return None
 
     # Resize the image to 1/4th of the screen size
-    screen_width = 1920  # Change this to your screen width
-    screen_height = 1080  # Change this to your screen height
-    new_width = screen_width // 2
-    new_height = screen_height // 2
-    image = cv2.resize(image, (new_width, new_height))
-
+#    screen_width = 1920  # Change this to your screen width
+#    screen_height = 1080  # Change this to your screen height
+#    image = cv2.resize(image, (screen_width, screen_height))
+    cam.read()
     detect_multiple_colors_in_image(image, colors)
 
     cv2.imshow('Frame', image)
