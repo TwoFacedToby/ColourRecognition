@@ -364,10 +364,10 @@ def next_command_from_state(state):
     if closest_ball_coords:
 
 
-        if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 40):
+        if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 50):
 
             print("Robot will find next safe point")
-            vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 40)
+            vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 55)
 
             vector = vector_to_safe_point
 
