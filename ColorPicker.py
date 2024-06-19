@@ -356,11 +356,16 @@ def render():
     new_height = screen_height // 2
     image = cv2.resize(image, (new_width, new_height))
 
+    # Adjust exposure and enhance contrast
+    image = adjust_exposure(image)  # Adjust these parameters as needed
+    image = enhance_contrast(image)
+
     detect_multiple_colors_in_image(image, colors)
 
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
+
 def remove_traces():
     tolerance_entry_var.trace_remove('write', tolerance_trace_id)
     min_area_entry_var.trace_remove('write', min_area_trace_id)
@@ -483,6 +488,25 @@ def create_gui():
 
     root.mainloop()
 
+
+def adjust_exposure(image):
+    alpha = 1.0     #param alpha: Contrast control. 1.0-3.0 for more contrast, <1.0 for less.
+    beta = -50     #param beta: Brightness control. 0-100 for brighter, <0 for darker.
+
+    return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
+
+def enhance_contrast(image):
+    """
+    Enhances the contrast of the image using CLAHE (Contrast Limited Adaptive Histogram Equalization).
+    :param image: Input image.
+    :return: Contrast-enhanced image.
+    """
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    cl = clahe.apply(l)
+    limg = cv2.merge((cl, a, b))
+    return cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
 
 
 if __name__ == "__main__":
