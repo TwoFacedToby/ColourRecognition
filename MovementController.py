@@ -384,6 +384,11 @@ def decompose_vector(vector, wall_orientation):
         # Wall is horizontal, so parallel component is vertical
         V_parallel = (Vx, 0)
         V_perpendicular = (0, Vy)
+    elif orientation == 'diagonal':
+        # We are going into a corner and needs diagonal direction
+        norm = np.sqrt(Vx**2 + Vy**2)
+        V_parallel = (Vx / norm, Vy / norm)
+        V_perpendicular = (-Vy / norm, Vx / norm)
     else:
         raise ValueError("wall_orientation must be 'vertical' or 'horizontal'")
     
@@ -464,6 +469,8 @@ def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
             wall_orientation = 'vertical'
         elif closest_wall in ['top', 'bottom']:
             wall_orientation = 'horizontal'
+        elif closest_wall in ['top_left_corner', 'top_right_corner', 'bottom_left_corner', 'bottom_right_corner']:
+            wall_orientation = 'diagonal'
         
         V_parallel, V_perpendicular = decompose_vector(vector, wall_orientation)
         return closest_wall, V_parallel, V_perpendicular
