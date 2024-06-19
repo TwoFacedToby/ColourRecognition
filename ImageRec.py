@@ -587,8 +587,9 @@ def detect_multiple_colors_in_image(image, colors):
         shared_state.cross_top_right = cross_top_right
         shared_state.cross_bottom_left = cross_bottom_left
         shared_state.cross_bottom_right = cross_bottom_right
+        cv2.circle(image, middle_cross_point, 5, (0, 255, 0), -1)
 
-    cv2.circle(image, middle_cross_point, 5, (0, 255, 0), -1)
+    
 
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
@@ -624,10 +625,10 @@ def detect_multiple_colors_in_image(image, colors):
 colors = [
     {
         'name': 'balls',
-        'hex_color': 'FDF7F5',
-        'tolerance': 80,
+        'hex_color': 'E3EDFF',
+        'tolerance': 55,
         'min_area': 50,
-        'max_area': 200,
+        'max_area': 150,
         'draw_color': (0, 255, 0)  # Green
     },
     {
@@ -640,22 +641,24 @@ colors = [
     },
     {
         'name': 'wall',
-        'hex_color': 'F03A26',
-        'tolerance': 70,
-        'min_area': 500,
+        'hex_color': 'BC404C',
+        'tolerance': 50,
+        'min_area': 200,
+        'max_area':1000000,
         'draw_color': (255, 0, 255)  # Purple
     },
     {
         'name': 'robot',
-        'hex_color': '9AD9BB',
-        'tolerance': 45,
-        'min_area': 400,
+        'hex_color': '01ACC1',
+        'tolerance': 60,
+        'min_area': 100,
+        'max_area': 700,
         'draw_color': (255, 0, 0)  # Blue
     },
     {
         'name': 'goal',
-        'hex_color': 'ADA0BD',
-        'tolerance': 20,
+        'hex_color': 'FEFBBD',
+        'tolerance': 30,
         'min_area': 50,
         'max_area': 500,
         'draw_color': (0, 0, 0)  # Black
@@ -678,8 +681,8 @@ def calculate_distance(point1, point2):
 
 
 # Given values
-robot_real_height = 16.0  # cm
-camera_height = 189  # cm
+robot_real_height = 17.0  # cm
+camera_height = 187  # cm
 field = 84
 
 
@@ -794,6 +797,9 @@ def render():
 
     if len(robot_positions) != 3:
         print("Are we here")
+        cv2.imshow('Frame', image)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
         return None
 
     state = State(
@@ -823,7 +829,9 @@ def render():
         #print("Start robo: ", robot_pos)
         #print("Middle point: ", shared_state.middlepoint[0], " ", shared_state.middlepoint[1])
         #print("My coords: ", coords)
-        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 0), -1)
+        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 255), -1)
+
+
 
         shared_state.real_position_robo = coords
 
@@ -831,9 +839,10 @@ def render():
         robot_center = robot_positions[0]  # Use the first robot position as the center
         distance_to_goal = calculate_distance(robot_center, goal_position)
 
-
     calculate_final_position
+    
 
+    
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
