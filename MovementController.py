@@ -390,7 +390,7 @@ def decompose_vector(vector, wall_orientation):
         V_parallel = (Vx / norm, Vy / norm)
         V_perpendicular = (-Vy / norm, Vx / norm)
     else:
-        raise ValueError("wall_orientation must be 'vertical' or 'horizontal'")
+        raise ValueError("wall_orientation must be 'vertical', 'horizontal' or 'diagonal'")
     
     return V_parallel, V_perpendicular
 
@@ -489,13 +489,13 @@ def position_to_move_to_ball_in_box(ball_position, box_center, distance):
     # Normalize the direction vector
     norm = np.linalg.norm(direction_vector)
     if norm == 0:
-        raise ValueError("The ball position and box center cannot be the same.")
+        norm = 0.1 # We cant divide by 0, but we can use a low value
     direction_unit_vector = direction_vector / norm
 
     # Calculate the starting position of the vector
     start_position = ball_position - direction_unit_vector * distance
 
-    return start_position.tolist()
+    return start_position
 
 def is_ball_in_obstacle(ball_position, box_center, box_width):
     # Calculate half the width of the box
@@ -514,14 +514,48 @@ def is_ball_in_obstacle(ball_position, box_center, box_width):
     else:
         return False
 
+def is_path_through_orange(robot_position, vector, orange_position, orange_width):
+    def line_intersects_line(p1, p2, p3, p4):
+        # Check if line segments (p1, p2) and (p3, p4) intersect
+        def ccw(A, B, C):
+            return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+        return ccw(p1, p3, p4) != ccw(p2, p3, p4) and ccw(p1, p2, p3) != ccw(p1, p2, p4)
+
+    orange_left = int(box_center[0] - orange_width // 2)
+    orange_right = int(box_center[0] + orange_width // 2)
+    orange_top = int(box_center[1] - orange_width // 2)
+    orange_bottom = int(box_center[1] + orange_width // 2)
+
+
+    # Calculate the target position based on the vector
+    target_position = (int(robot_position[0] - vector[0]), int(robot_position[1] - vector[1]))
+
+    # Define the corners of the orange_ball
+    top_left = (orange_left, orange_top)
+    top_right = (orange_right, orange_top)
+    bottom_left = (orange_left, orange_bottom)
+    bottom_right = (orange_right, orange_bottom)
+
+    # Debug print statements
+    print(f"Robot Position: {robot_position}")
+    print(f"Target Position: {target_position}")
+    print(f"Bounding Box: {top_left}, {top_right}, {bottom_left}, {bottom_right}")
+
+    # Check if either of the lines intersects any of the box's sides
+    if(line_intersects_line(robot_position, target_position, top_left, top_right) or
+        line_intersects_line(robot_position, target_position, top_right, bottom_right) or
+        line_intersects_line(robot_position, target_position, bottom_right, bottom_left) or
+        line_intersects_line(robot_position, target_position, bottom_left, top_left)):
+            print("The robot's path intersects with the orange ball.")
+            return True
+    return false
+
+
 
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
     return np.linalg.norm(np.array(point1) - np.array(point2))
-
-
-
-import numpy as np
 
 def navigate_to_goal(robot, goal_position):
     if not goal_position:
