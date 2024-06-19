@@ -6,15 +6,15 @@ from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state, robot_position, robot_front_and_back, shortest_vector_with_index, vector_from_robot_to_next_ball
 # Capturing video through webcam
-cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
+# cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+# cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 from sklearn.cluster import DBSCAN
 from collections import Counter, deque
 import shared_state
 import math
 
 
-#cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
+cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
 class State:
     def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos):
@@ -782,6 +782,8 @@ print(calculate_b_adj(187.5, 16, 84))
 def render():
     reset()  # Assuming reset() is defined elsewhere
     ret, image = cam.read()  # Reading Images
+    image = adjust_exposure(image)  # Adjust these parameters as needed
+    image = enhance_contrast(image)
     shared_state.image = image
     if not ret:
         print("Error: Failed to read frame.")
@@ -841,4 +843,21 @@ def render():
 
 
 
+def adjust_exposure(image):
+    alpha = 1    #param alpha: Contrast control. 1.0-3.0 for more contrast, <1.0 for less.
+    beta = -50     #param beta: Brightness control. 0-100 for brighter, <0 for darker.
 
+    return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
+
+def enhance_contrast(image):
+    """
+    Enhances the contrast of the image using CLAHE (Contrast Limited Adaptive Histogram Equalization).
+    :param image: Input image.
+    :return: Contrast-enhanced image.
+    """
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    cl = clahe.apply(l)
+    limg = cv2.merge((cl, a, b))
+    return cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)

@@ -45,7 +45,7 @@ colors = [
         'hex_color': '9AD9BB',
         'tolerance': 45,
         'min_area': 400,
-        'max_area': 800,
+        'max_area': 1500,
         'draw_color': (255, 0, 0)  # Blue
     },
     {
@@ -74,6 +74,18 @@ tolerance_trace_id = None
 min_area_trace_id = None
 max_area_trace_id = None
 
+
+# Global variable to store the picked color
+picked_color = None
+
+
+def pick_color(event, x, y, flags, param):
+    global picked_color
+    if event == cv2.EVENT_LBUTTONDOWN:
+        b, g, r = param[y, x]
+        picked_color = '{:02x}{:02x}{:02x}'.format(r, g, b).upper()
+        print(f"Picked color: {picked_color}")  # Debug statement
+        hex_color_var.set(picked_color)  # Update the hex color variable
 
 
 class State:
@@ -342,7 +354,11 @@ def detect_multiple_colors_in_image(image, colors):
     return ball_positions, robot_positions, goal_position
 
 
+# Global variable to control color picker mode
+color_picker_enabled = False
+
 def render():
+    global color_picker_enabled
     ret, image = cam.read()  # Reading Images
     if not ret:
         print("Error: Failed to read frame.")
@@ -361,6 +377,11 @@ def render():
     image = enhance_contrast(image)
 
     detect_multiple_colors_in_image(image, colors)
+
+    # If color picker mode is enabled, set the mouse callback
+    if color_picker_enabled:
+        cv2.setMouseCallback('Frame', pick_color, param=image)
+        color_picker_enabled = False  # Disable it after setting the callback
 
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -448,6 +469,10 @@ def create_gui():
     global tolerance_entry, min_area_entry, max_area_entry  # Make these accessible in update_color_params
     global tolerance_trace_id, min_area_trace_id, max_area_trace_id  # Add these global variables
 
+    def enable_color_picker():
+        global color_picker_enabled
+        color_picker_enabled = True
+
     root = tk.Tk()
     root.title("Color Picker")
 
@@ -480,6 +505,10 @@ def create_gui():
     max_area_entry = tk.Entry(root, textvariable=max_area_entry_var)
     max_area_entry.grid(row=4, column=1, padx=10, pady=10)
 
+    # Add color picker button
+    color_picker_button = tk.Button(root, text="Pick Color from Image", command=enable_color_picker)
+    color_picker_button.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
+
     # Set initial values for entries without traces
     update_color_params_without_traces()
 
@@ -490,7 +519,7 @@ def create_gui():
 
 
 def adjust_exposure(image):
-    alpha = 1.0     #param alpha: Contrast control. 1.0-3.0 for more contrast, <1.0 for less.
+    alpha = 1    #param alpha: Contrast control. 1.0-3.0 for more contrast, <1.0 for less.
     beta = -50     #param beta: Brightness control. 0-100 for brighter, <0 for darker.
 
     return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
