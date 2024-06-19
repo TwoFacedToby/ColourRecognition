@@ -406,9 +406,21 @@ def check_wall_proximity(ball_x, ball_y, threshold=40):
     - A string indicating which wall the ball is closest to, or None if it's not close to any wall.
     """
     if abs(ball_x - shared_state.left_wall) <= threshold:
+        if(abs(ball_y - shared_state.upper_wall) <= threshold):
+            print("Top left corner")
+            return "top_left_corner"
+        if abs(ball_y - shared_state.lower_wall) <= threshold:
+            print("Bottom left corner")
+            return "bottom_left_corner"
         print("left")
         return 'left'
     elif abs(ball_x - shared_state.right_wall) <= threshold:
+        if(abs(ball_y - shared_state.upper_wall) <= threshold):
+            print("Top right corner")
+            return "top_right_corner"
+        if abs(ball_y - shared_state.lower_wall) <= threshold:
+            print("Bottom right corner")
+            return "bottom_right_corner"
         print("right")
         return 'right'
     elif abs(ball_y - shared_state.upper_wall) <= threshold:
@@ -432,6 +444,14 @@ def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
     - right_wall_x: x-coordinate of the right wall.
     - top_wall_y: y-coordinate of the top wall.
     - bottom_wall_y: y-coordinate of the bottom wall.
+    - TopL_corner_x: x-coordinate of the top left corner.
+    - TopR_corner_x: x-coordinate of the top rigt corner.
+    - BottomL_corner_x: x-coordinate of the bottom left corner.
+    - BottomR_corner_x: x-coordinate of the bottom rigt corner.
+    - TopL_corner_y: y-coordinate of the top left corner.
+    - TopR_corner_y: y-coordinate of the top rigt corner.
+    - BottomL_corner_y: y-coordinate of the bottom left corner.
+    - BottomR_corner_y: y-coordinate of the bottom rigt corner.
     - threshold: Distance threshold to consider the ball close to the wall (default is 40 pixels).
     
     Returns:
