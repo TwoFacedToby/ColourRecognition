@@ -6,7 +6,8 @@ from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state, robot_position, robot_front_and_back, shortest_vector_with_index, vector_from_robot_to_next_ball
 # Capturing video through webcam
-cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+# cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture("TrackVideos/NewNEWNEWVideo.mp4")
 cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 from sklearn.cluster import DBSCAN
 from collections import Counter, deque
@@ -17,9 +18,9 @@ import math
 #cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
 class State:
-    def __init__(self, balls, orange_ball, corners, robot, small_goal_pos, big_goal_pos):
+    def __init__(self, balls, orange_ball_position, corners, robot, small_goal_pos, big_goal_pos):
         self.balls = balls
-        self.orange_ball = orange_ball
+        self.orange_ball_position = orange_ball_position
         self.corners = corners
         self.robot = robot
         self.small_goal_pos = small_goal_pos
@@ -530,7 +531,7 @@ def detect_multiple_colors_in_image(image, colors):
         shared_state.cross_bottom_left = cross_bottom_left
         shared_state.cross_bottom_right = cross_bottom_right
 
-    cv2.circle(image, middle_cross_point, 5, (0, 255, 0), -1)
+    cv2.circle(image, shared_state.cross_middle, 5, (0, 165, 255), -1) #ORange mid point of cross
 
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
@@ -548,7 +549,15 @@ def detect_multiple_colors_in_image(image, colors):
     #for pos in cross_positions:
     #   cv2.circle(image, pos, 5, (255, 0, 0), -1)  # Purple circle for cross positions
 
-
+    '''Drawing some test for balls in cross'''
+    if shared_state.cross_middle:
+        for ball in ball_positions:
+            cross_width = 69
+            start_position = position_to_move_to_ball_in_obstacle(ball, shared_state.cross_middle, cross_width)
+            # Convert numpy arrays to tuples of integers
+            start_positionNick = tuple(map(int, start_position))
+            ball2 = tuple(map(int, ball))
+            cv2.line(image, start_positionNick, ball2, (0, 255, 0), 2)
     
 
     #temp_vector = vector_between_points(shared_state.real_position_robo, ball_positions[0])
@@ -721,6 +730,83 @@ def calculate_final_position(midpoint, robot_position, camera_height, end_of_fie
 
 print(calculate_b_adj(187.5, 16, 84))
 
+'''Lets look at these new things'''
+
+def position_to_move_to_ball_in_obstacle(ball_position, box_center, distance):
+    # Convert the positions to numpy arrays
+    ball_position = np.array(ball_position)
+    box_center = np.array(box_center)
+
+    # Calculate the direction vector from the ball to the obstacle center
+    direction_vector = box_center - ball_position
+
+    # Normalize the direction vector
+    norm = np.linalg.norm(direction_vector)
+    if norm == 0:
+        norm = 0.1 # We cant divide by 0, but we can use a low value
+    direction_unit_vector = direction_vector / norm
+
+    # Calculate the starting position of the vector
+    start_position = ball_position - direction_unit_vector * distance
+
+    return start_position
+
+def is_ball_in_obstacle(ball_position, box_center, box_width):
+    # Calculate half the width of the box
+    half_width = box_width / 2
+
+    # Calculate the boundaries of the box
+    left_boundary = box_center[0] - half_width
+    right_boundary = box_center[0] + half_width
+    bottom_boundary = box_center[1] - half_width
+    top_boundary = box_center[1] + half_width
+
+    # Check if the ball is within the boundaries
+    if (left_boundary <= ball_position[0] <= right_boundary) and \
+        (bottom_boundary <= ball_position[1] <= top_boundary):
+        return True
+    else:
+        return False
+
+def is_path_through_orange(robot_position, vector, orange_position, orange_width):
+    def line_intersects_line(p1, p2, p3, p4):
+        # Check if line segments (p1, p2) and (p3, p4) intersect
+        def ccw(A, B, C):
+            return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+        return ccw(p1, p3, p4) != ccw(p2, p3, p4) and ccw(p1, p2, p3) != ccw(p1, p2, p4)
+
+    orange_left = int(orange_position[0] - orange_width // 2)
+    orange_right = int(orange_position[0] + orange_width // 2)
+    orange_top = int(orange_position[1] - orange_width // 2)
+    orange_bottom = int(orange_position[1] + orange_width // 2)
+
+
+    # Calculate the target position based on the vector
+    target_position = (int(robot_position[0] - vector[0]), int(robot_position[1] - vector[1]))
+
+    # Define the corners of the orange_ball
+    top_left = (orange_left, orange_top)
+    top_right = (orange_right, orange_top)
+    bottom_left = (orange_left, orange_bottom)
+    bottom_right = (orange_right, orange_bottom)
+
+    # Debug print statements
+    print(f"Robot Position: {robot_position}")
+    print(f"Target Position: {target_position}")
+    print(f"Bounding Box: {top_left}, {top_right}, {bottom_left}, {bottom_right}")
+
+    # Check if either of the lines intersects any of the box's sides
+    if(line_intersects_line(robot_position, target_position, top_left, top_right) or
+        line_intersects_line(robot_position, target_position, top_right, bottom_right) or
+        line_intersects_line(robot_position, target_position, bottom_right, bottom_left) or
+        line_intersects_line(robot_position, target_position, bottom_left, top_left)):
+            print("The robot's path intersects with the orange ball.")
+            return True
+    return false
+
+
+
 def render():
     reset()  # Assuming reset() is defined elsewhere
     ret, image = cam.read()  # Reading Images
@@ -754,7 +840,7 @@ def render():
 
     #print("Old rot: ", rob_rot)
 
-    if front_and_back is not None:
+    if front_and_back is not None and shared_state.low_x is not None: #This is wrong remove this shared_state.low_x not none
         # Calculate robot position and draw a blue circle
         robot_pos = robot_position(front_and_back)
         
