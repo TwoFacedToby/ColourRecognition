@@ -522,10 +522,10 @@ def is_path_through_orange(robot_position, vector, orange_position, orange_width
 
         return ccw(p1, p3, p4) != ccw(p2, p3, p4) and ccw(p1, p2, p3) != ccw(p1, p2, p4)
 
-    orange_left = int(box_center[0] - orange_width // 2)
-    orange_right = int(box_center[0] + orange_width // 2)
-    orange_top = int(box_center[1] - orange_width // 2)
-    orange_bottom = int(box_center[1] + orange_width // 2)
+    orange_left = int(orange_position[0] - orange_width // 2)
+    orange_right = int(orange_position[0] + orange_width // 2)
+    orange_top = int(orange_position[1] - orange_width // 2)
+    orange_bottom = int(orange_position[1] + orange_width // 2)
 
 
     # Calculate the target position based on the vector
