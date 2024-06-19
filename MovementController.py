@@ -200,6 +200,8 @@ def next_command_from_state(state):
 
     ball_positions = state.balls  # Corrected usage
 
+    orange_ball = state.orange_ball #Position of orange ball
+
     
 
     ball_vectors = vectors_to_balls(robot, ball_positions)

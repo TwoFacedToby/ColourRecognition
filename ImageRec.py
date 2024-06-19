@@ -17,8 +17,9 @@ import math
 #cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
 class State:
-    def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos):
+    def __init__(self, balls, orange_ball, corners, robot, small_goal_pos, big_goal_pos):
         self.balls = balls
+        self.orange_ball = orange_ball
         self.corners = corners
         self.robot = robot
         self.small_goal_pos = small_goal_pos
@@ -342,6 +343,7 @@ def find_next_safe_point_with_image(image, robot_position, ball_position, box_ce
 
 def detect_multiple_colors_in_image(image, colors):
     ball_positions = []
+    orange_ball_position = None
     robot_positions = []
     goal_position = None
     wall_positions = []
@@ -384,6 +386,8 @@ def detect_multiple_colors_in_image(image, colors):
                     cY = int(M['m01'] / M['m00'])
                     if color['name'] == 'balls':
                         ball_positions.append((cX, cY))
+                    elif color['name'] == 'orange_balls':
+                        orange_ball_position = (cX, cY)
                     elif color['name'] == 'robot':
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
@@ -556,7 +560,7 @@ def detect_multiple_colors_in_image(image, colors):
 
 
 
-    return ball_positions, robot_positions, goal_position
+    return ball_positions, orange_ball_position, robot_positions, goal_position
 
 # Define colors and their properties
 colors = [
@@ -726,7 +730,7 @@ def render():
         return None
 
     # Detect multiple colors in the image
-    ball_positions, robot_positions, goal_position = detect_multiple_colors_in_image(image, colors)
+    ball_positions, orange_ball_position, robot_positions, goal_position = detect_multiple_colors_in_image(image, colors)
 
     if len(robot_positions) != 3:
         print("Are we here")
@@ -734,6 +738,7 @@ def render():
 
     state = State(
         balls=[Ball(x, y, True) for x, y in ball_positions],
+        orange_ball_position = orange_ball_position,
         corners=[],  # Update this if you need corners
         robot=Robot(*robot_positions[:3]),
         small_goal_pos=None,  # Update this if you have small_goal_pos
