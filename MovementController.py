@@ -75,122 +75,6 @@ def calculate_real_world_position(robot_pos, image_height):
 def robot_rotation_old(position):
     return angle_of_vector(position[0][0]-position[1][0], position[0][1] - position[1][1])
 
-'''Newly added wall avoidance functions starts here. Most of them need point, the grid and how big each grid cell is.'''
-
-'''Checks if a path is clear, if not it returns the grid with an obstacle in the way'''
-def is_path_clear(grid, start, end, cell_height, cell_width):
-    x0, y0 = start
-
-    x1 = end.x
-    y1 = end.y
-
-    dx = abs(x1 - x0)
-    dy = abs(y1 - y0)
-    x = x0
-    y = y0
-    n = 1 + dx + dy
-    x_inc = 1 if x1 > x0 else -1
-    y_inc = 1 if y1 > y0 else -1
-    error = dx - dy
-
-    dx *= 2
-    dy *= 2
-
-    for _ in range(int(n)):
-        grid_x = x // cell_width
-        grid_y = y // cell_height
-        if grid[int(grid_y)][int(grid_x)] == 1:
-            #return (grid_y, grid_x)  # Obstacle found at this grid
-            return False
-        if error > 0:
-            x += x_inc
-            error -= dy
-        else:
-            y += y_inc
-            error += dx
-
-    return True # Safe to proceed
-
-'''Two helper functions for the algortihm of avoiding balls'''
-def heuristic(a, b): #Defines how good a move is
-    # Using Manhattan distance as heuristic
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
-
-def is_valid_move(grid, current, neighbor): #Checks we dont go through any walls, if so not valid move in algorithm
-    rows, cols = len(grid), len(grid[0])
-    if not (0 <= neighbor[0] < rows and 0 <= neighbor[1] < cols):
-        return False
-    if grid[neighbor[0]][neighbor[1]] == 1:
-        return False
-    if abs(current[0] - neighbor[0]) == 1 and abs(current[1] - neighbor[1]) == 1: # Diagonal movement
-        if grid[current[0]][neighbor[1]] == 1 or grid[neighbor[0]][current[1]] == 1:
-            return False
-    return True
-
-'''This function creates a path using A* algorithm to a goal around walls.
-It does not yet take the width of the robot into acount and can "only" move in 8 directions.
-The steps are going through each grid so we translate it into an end coordinate with another function
-It takes some energy and should only be run if there is found an obstacle in the direct path'''
-def path_around_wall(grid, start, end):
-    rows, cols = len(grid), len(grid[0])
-    open_set = []
-    heapq.heappush(open_set, (0, start))
-    came_from = {}
-    g_score = {start: 0}
-    f_score = {start: heuristic(start, end)}
-
-    while open_set:
-        _, current = heapq.heappop(open_set)
-
-        if current == end:
-            path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            path.append(start)
-            path.reverse()
-            return path
-
-        neighbors = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
-        for dx, dy in neighbors:
-            neighbor = (current[0] + dx, current[1] + dy)
-            if is_valid_move(grid, current, neighbor):
-                tentative_g_score = g_score[current] + 1
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score[neighbor] = tentative_g_score + heuristic(neighbor, end)
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
-
-    return None  # No path found
-
-
-
-# Define global variables to keep track of the state and vectors
-global_step = 0
-V_parallel = None
-V_perpendicular = None
-vectors_initialized = False
-
-
-'''This is a helper function it turns the path from path_around_wall and turns it into
-an end coordinate, specificly the last grid spot before the robot needs to turn.'''
-def find_next_step_passt_wall(path, cell_height, cell_width):
-    if len(path) < 2:
-        return (path[0][0] * cell_height, path[0][1] * cell_width)  # There is only one way to go
-
-    # Initialize the direction vector
-    direction = (path[1][0] - path[0][0], path[1][1] - path[0][1])
-
-    for i in range(1, len(path) - 1):
-        current_direction = (path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1])
-        if current_direction != direction:
-            return (path[i][0] * cell_height, path[i][1] * cell_width)  # Return coordinates at strightline end
-
-    return (path[-1][0] * cell_height, path[-1][1] * cell_width)  # The whole path is straight
-
-'''End of new functions for wall avoidance'''
-
 def vector_between_points(point1, point2):
     """ Calculate the vector between two points (x, y). """
     return np.array([point1[0] - point2[0], point1[1] - point2[1]])
@@ -567,6 +451,41 @@ def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
         return None, None, None
 
 
+def position_to_move_to_ball_in_box(ball_position, box_center, distance):
+    # Convert the positions to numpy arrays
+    ball_position = np.array(ball_position)
+    box_center = np.array(box_center)
+
+    # Calculate the direction vector from the ball to the obstacle center
+    direction_vector = box_center - ball_position
+
+    # Normalize the direction vector
+    norm = np.linalg.norm(direction_vector)
+    if norm == 0:
+        raise ValueError("The ball position and box center cannot be the same.")
+    direction_unit_vector = direction_vector / norm
+
+    # Calculate the starting position of the vector
+    start_position = ball_position - direction_unit_vector * distance
+
+    return start_position.tolist()
+
+def is_ball_in_obstacle(ball_position, box_center, box_width):
+    # Calculate half the width of the box
+    half_width = box_width / 2
+
+    # Calculate the boundaries of the box
+    left_boundary = box_center[0] - half_width
+    right_boundary = box_center[0] + half_width
+    bottom_boundary = box_center[1] - half_width
+    top_boundary = box_center[1] + half_width
+
+    # Check if the ball is within the boundaries
+    if (left_boundary <= ball_position[0] <= right_boundary) and \
+        (bottom_boundary <= ball_position[1] <= top_boundary):
+        return True
+    else:
+        return False
 
 
 def calculate_distance(point1, point2):
