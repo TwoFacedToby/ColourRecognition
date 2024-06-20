@@ -6,15 +6,15 @@ from collections import Counter
 from scipy.stats import circmean
 from MovementController import next_command_from_state, robot_position, robot_front_and_back, shortest_vector_with_index, vector_from_robot_to_next_ball
 # Capturing video through webcam
-# cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-# cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
+cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 from sklearn.cluster import DBSCAN
 from collections import Counter, deque
 import shared_state
 import math
 
 
-cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
+#cam = cv2.VideoCapture("TrackVideos/Tester.mp4")
 
 class State:
     def __init__(self, balls, corners, robot, small_goal_pos, big_goal_pos):
@@ -226,7 +226,7 @@ real_world_distance = shared_state.real_world_distance
 
 
 def all_grid_calc():
-    ret, image = cam.read() 
+    ret, image = cam.read()
     global glob_grid
     cell_height, cell_width, glob_grid = initialize_grid(image, grid_row, grid_col)
     update_grid_with_obstacles(image, glob_grid, cell_height, cell_width)
@@ -279,7 +279,7 @@ def update_grid_with_obstacles(image, grid, cell_height, cell_width):
 
             for(contour) in egg_contours:
                 if 100 <= cv2.contourArea(contour): #Adjust these numbers as needed
-                  grid[i][j] = 1
+                    grid[i][j] = 1
 
 
 '''Helper function, it is used to visualize the grid on the image'''
@@ -344,13 +344,13 @@ def vector_intersects_box_with_image(image, robot_position, vector, box_center, 
 
     # Check if either of the lines intersects any of the box's sides
     if (line_intersects_line(left_robot_position, left_target_position, top_left, top_right) or
-        line_intersects_line(left_robot_position, left_target_position, top_right, bottom_right) or
-        line_intersects_line(left_robot_position, left_target_position, bottom_right, bottom_left) or
-        line_intersects_line(left_robot_position, left_target_position, bottom_left, top_left) or
-        line_intersects_line(right_robot_position, right_target_position, top_left, top_right) or
-        line_intersects_line(right_robot_position, right_target_position, top_right, bottom_right) or
-        line_intersects_line(right_robot_position, right_target_position, bottom_right, bottom_left) or
-        line_intersects_line(right_robot_position, right_target_position, bottom_left, top_left)):
+            line_intersects_line(left_robot_position, left_target_position, top_right, bottom_right) or
+            line_intersects_line(left_robot_position, left_target_position, bottom_right, bottom_left) or
+            line_intersects_line(left_robot_position, left_target_position, bottom_left, top_left) or
+            line_intersects_line(right_robot_position, right_target_position, top_left, top_right) or
+            line_intersects_line(right_robot_position, right_target_position, top_right, bottom_right) or
+            line_intersects_line(right_robot_position, right_target_position, bottom_right, bottom_left) or
+            line_intersects_line(right_robot_position, right_target_position, bottom_left, top_left)):
         print("The robot's path intersects with the cross.")
         return True
 
@@ -381,11 +381,11 @@ def find_next_safe_point_with_image(image, robot_position, ball_position, box_ce
     # Find the next safe point for the robot
     for pos_name, _ in sorted_cross_positions:
         safe_point = cross_positions[pos_name]
-        
+
         # Calculate the vector for the robot's path
         vector_to_safe_point = vector_between_points(robot_position, safe_point)
-        
-        
+
+
 
         # Check if the path to the safe point intersects with the cross box
         if not vector_intersects_box_with_image(image, robot_position, vector_to_safe_point, box_center, box_width, robot_width):
@@ -397,7 +397,14 @@ def find_next_safe_point_with_image(image, robot_position, ball_position, box_ce
 
 
 
-
+# Function to convert hex color to HSV
+def hex_to_hsv(hex_color):
+    hex_color = hex_color.lstrip('#')
+    h_len = len(hex_color)
+    rgb_color = tuple(int(hex_color[i:i + h_len // 3], 16) for i in range(0, h_len, h_len // 3))
+    bgr_color = np.uint8([[list(rgb_color[::-1])]])
+    hsv_color = cv2.cvtColor(bgr_color, cv2.COLOR_BGR2HSV)[0][0]
+    return hsv_color
 
 
 
@@ -414,7 +421,7 @@ def detect_multiple_colors_in_image(image, colors):
     wall_y_positions = []
     low_y_history = []
     high_y_history = []
-    
+
 
 
 
@@ -422,6 +429,8 @@ def detect_multiple_colors_in_image(image, colors):
     height, width, _ = image.shape
     middle_x = width // 2
     middle_y = height // 2
+
+
 
 
     for color in colors:
@@ -466,7 +475,7 @@ def detect_multiple_colors_in_image(image, colors):
     # Draw circles for detected ball and robot positions
     for pos in ball_positions:
         cv2.circle(image, pos, 5, (0, 0, 0), -1)  # Black circle for balls
-    
+
     for pos in robot_positions:
         cv2.circle(image, pos, 5, (0, 0, 255), -1)  # Red circle for robots
 
@@ -543,9 +552,9 @@ def detect_multiple_colors_in_image(image, colors):
         highest_y_with_center_x = (most_common_middle_point[0], stable_high_y)
         shared_state.lower_wall = stable_high_y
         shared_state.high_y = highest_y_with_center_x
-        cv2.circle(image, highest_y_with_center_x, 5, (0, 0, 0), -1)    
+        cv2.circle(image, highest_y_with_center_x, 5, (0, 0, 0), -1)
 
-    # Calculate the reference vector magnitude
+        # Calculate the reference vector magnitude
     if lowest_x_with_center_y and highest_x_with_center_y:
         reference_vector = vector_between_points(highest_x_with_center_y, lowest_x_with_center_y)
         shared_state.reference_vector_magnitude = np.linalg.norm(reference_vector)
@@ -566,12 +575,12 @@ def detect_multiple_colors_in_image(image, colors):
         cross_top_right = None
         cross_bottom_left = None
         cross_bottom_right = None
-    
+
         # Draw additional points with the offsets and update shared_state
         for i, (dx, dy) in enumerate(offsets):
             offset_point = (middle_cross_point[0] + dx, middle_cross_point[1] + dy)
             cv2.circle(image, offset_point, 5, (0, 255, 0), -1)  # Green circles for offset points
-        
+
             # Assign the offset points to the respective cross corner
             if dx == -120 and dy == -120:
                 cross_top_left = offset_point
@@ -580,15 +589,16 @@ def detect_multiple_colors_in_image(image, colors):
             elif dx == -120 and dy == 120:
                 cross_bottom_left = offset_point
             elif dx == 120 and dy == 120:
-                cross_bottom_right = offset_point  
+                cross_bottom_right = offset_point
 
-        # Update shared_state with the cross corners
+                # Update shared_state with the cross corners
         shared_state.cross_top_left = cross_top_left
         shared_state.cross_top_right = cross_top_right
         shared_state.cross_bottom_left = cross_bottom_left
         shared_state.cross_bottom_right = cross_bottom_right
+        cv2.circle(image, middle_cross_point, 5, (0, 255, 0), -1)
 
-    cv2.circle(image, middle_cross_point, 5, (0, 255, 0), -1)
+
 
     ball_positions = ball_positions[:10]
     robot_positions = robot_positions[:3]
@@ -596,8 +606,8 @@ def detect_multiple_colors_in_image(image, colors):
     # Draw circles at the four spots around the image center
     #offsets = [(80, 80), (80, -80), (-80, 80), (-80, -80)]
     #for dx, dy in offsets:
-        #cv2.circle(image, (middle_x + dx, middle_y + dy), 5, (255, 0, 255), -1)  # Purple circles
-    
+    #cv2.circle(image, (middle_x + dx, middle_y + dy), 5, (255, 0, 255), -1)  # Purple circles
+
 
     # Draw a circle at the exact middle of the image
     cv2.circle(image, (middle_x, middle_y), 5, (0, 255, 0), -1)  # Green circle for the middle point
@@ -607,7 +617,7 @@ def detect_multiple_colors_in_image(image, colors):
     #   cv2.circle(image, pos, 5, (255, 0, 0), -1)  # Purple circle for cross positions
 
 
-    
+
 
     #temp_vector = vector_between_points(shared_state.real_position_robo, ball_positions[0])
 
@@ -624,49 +634,51 @@ def detect_multiple_colors_in_image(image, colors):
 colors = [
     {
         'name': 'balls',
-        'hex_color': 'FDF7F5',
-        'tolerance': 80,
-        'min_area': 50,
+        'hex_color': 'FDF9F8',
+        'tolerance': 60,
+        'min_area': 40,
         'max_area': 200,
-        'draw_color': (0, 255, 0)  # Green
+        'draw_color': (255, 255, 255)  # Green
     },
     {
         'name': 'egg',
         'hex_color': 'FDF7F5',
         'tolerance': 20,
-        'min_area' : 300,
+        'min_area': 300,
         'max_area': 1000,
-        'draw_color': (0, 0, 255) 
+        'draw_color': (0, 0, 255)
     },
     {
         'name': 'wall',
         'hex_color': 'F03A26',
         'tolerance': 70,
-        'min_area': 500,
+        'min_area': 200,
+        'max_area': 15000000,
         'draw_color': (255, 0, 255)  # Purple
     },
     {
         'name': 'robot',
-        'hex_color': '9AD9BB',
+        'hex_color': '35CCC6',
         'tolerance': 45,
         'min_area': 400,
+        'max_area': 1500,
         'draw_color': (255, 0, 0)  # Blue
     },
     {
         'name': 'goal',
-        'hex_color': 'ADA0BD',
-        'tolerance': 20,
-        'min_area': 50,
-        'max_area': 500,
+        'hex_color': 'FEFFAB',
+        'tolerance': 12,
+        'min_area': 30,
+        'max_area': 300,
         'draw_color': (0, 0, 0)  # Black
-    },  
+    },
     {
         'name': 'orange_balls',
         'hex_color': 'FE9546',
         'tolerance': 30,
         'min_area': 50,
         'max_area': 300,
-        'draw_color': (0, 255, 255)  
+        'draw_color': (0, 255, 255)
     }
 ]
 
@@ -678,19 +690,19 @@ def calculate_distance(point1, point2):
 
 
 # Given values
-robot_real_height = 16.0  # cm
-camera_height = 189  # cm
+robot_real_height = 17.0  # cm
+camera_height = 187  # cm
 field = 84
 
 
 def calculate_real_world_position(robot_pos, image_height):
     """
     Calculate the real-world position of the robot.
-    
+
     Parameters:
     robot_pos (tuple): The observed position of the robot in the image (x, y).
     image_height (int): The height of the image in pixels.
-    
+
     Returns:
     tuple: The real-world position of the robot (x, y) in pixels for drawing.
     """
@@ -782,8 +794,8 @@ print(calculate_b_adj(187.5, 16, 84))
 def render():
     reset()  # Assuming reset() is defined elsewhere
     ret, image = cam.read()  # Reading Images
-    image = adjust_exposure(image)  # Adjust these parameters as needed
-    image = enhance_contrast(image)
+    #image = adjust_exposure(image)  # Adjust these parameters as needed
+    #image = enhance_contrast(image)
     shared_state.image = image
     if not ret:
         print("Error: Failed to read frame.")
@@ -794,6 +806,9 @@ def render():
 
     if len(robot_positions) != 3:
         print("Are we here")
+        cv2.imshow('Frame', image)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
         return None
 
     state = State(
@@ -808,7 +823,7 @@ def render():
     front_and_back = robot_front_and_back(state.robot)
 
     #print("Robot rotation: ", robot_rotation(front_and_back, shared_state.image_height))
-    
+
     rob_rot = robot_rotation_old(front_and_back)
 
     #print("Old rot: ", rob_rot)
@@ -816,14 +831,16 @@ def render():
     if front_and_back is not None:
         # Calculate robot position and draw a blue circle
         robot_pos = robot_position(front_and_back)
-        
+
         cv2.circle(image, (int(robot_pos[0]), int(robot_pos[1])), 5, (255, 0, 0), -1)
-        
+
         coords = calculate_final_position(shared_state.middlepoint, robot_pos, camera_height, shared_state.low_x, robot_real_height)
         #print("Start robo: ", robot_pos)
         #print("Middle point: ", shared_state.middlepoint[0], " ", shared_state.middlepoint[1])
         #print("My coords: ", coords)
-        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 0), -1)
+        cv2.circle(image, (int(coords[0]), int(coords[1])), 5, (255, 255, 255), -1)
+
+
 
         shared_state.real_position_robo = coords
 
@@ -831,8 +848,9 @@ def render():
         robot_center = robot_positions[0]  # Use the first robot position as the center
         distance_to_goal = calculate_distance(robot_center, goal_position)
 
-
     calculate_final_position
+
+
 
     # Display the frame with contours and circles
     cv2.imshow('Frame', image)

@@ -10,8 +10,8 @@ real_world_distance = 1150  # Real-world distance between the highest and lowest
 image_height = 1
 current_ball = None
 middlepoint = None
-low_x = None
-high_x = None
+low_x = (0, 0)
+high_x = (0, 0)
 real_position_robo = (1, 1)
 half_field_pixel = 1
 
