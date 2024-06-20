@@ -195,6 +195,79 @@ def vector_between_points(point1, point2):
     """ Calculate the vector between two points (x, y). """
     return np.array([point1[0] - point2[0], point1[1] - point2[1]])
 
+
+def vector_insersects_orange(robot_position, vector, orange_center, orange_radius):
+    orange_box_left = int(orange_center[0] - orange_radius // 2)
+    orange_box_right = int(orange_center[0] + orange_radius // 2)
+    orange_box_top = int(orange_center[1] - orange_radius // 2)
+    orange_box_bottom = int(orange_center[1] + orange_radius // 2)
+
+    def line_intersects_line(p1, p2, p3, p4):
+        # Check if line segments (p1, p2) and (p3, p4) intersect This could be moved outside and be shared with vector_intersects_box
+        def ccw(A, B, C):
+            return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+        return ccw(p1, p3, p4) != ccw(p2, p3, p4) and ccw(p1, p2, p3) != ccw(p1, p2, p4)
+
+    # Calculate the target position based on the vector
+    target_position = (int(robot_position[0] - vector[0]), int(robot_position[1] - vector[1]))
+
+
+    if (line_intersects_line(robot_position, target_position, top_left, top_right) or
+        line_intersects_line(robot_position, target_position, top_right, bottom_right) or
+        line_intersects_line(robot_position, target_position, bottom_right, bottom_left) or
+        line_intersects_line(robot_position, target_position, bottom_left, top_left)):
+        return True
+
+    return False
+
+def orange_safe_points(robot_position, destination_position, orange_center, orange_radius):
+
+    distance_buffer = 10
+
+    orange_box_left = int(orange_center[0] - orange_radius // 2)
+    orange_box_right = int(orange_center[0] + orange_radius // 2)
+    orange_box_top = int(orange_center[1] - orange_radius // 2)
+    orange_box_bottom = int(orange_center[1] + orange_radius // 2)
+
+    safe_points = []
+
+    safe_points.append((orange_box_left + distance_buffer), (orange_box_top + distance_buffer))
+    safe_points.append((orange_box_right + distance_buffer), (orange_box_top + distance_buffer))
+    safe_points.append((orange_box_left + distance_buffer), (orange_box_bottom + distance_buffer))
+    safe_points.append((orange_box_right + distance_buffer), (orange_box_bottom + distance_buffer))
+
+
+    # Calculate the distances from the destination to each safe position
+    distances_to_destination = {
+        'top_left': np.linalg.norm(np.array(destination_position) - np.array(cross_positions['top_left'])),
+        'top_right': np.linalg.norm(np.array(destination_position) - np.array(cross_positions['bottom_right'])),
+        'bottom_left': np.linalg.norm(np.array(destination_position) - np.array(cross_positions['top_right'])),
+        'bottom_right': np.linalg.norm(np.array(destination_position) - np.array(cross_positions['bottom_left'])),
+    }
+
+    # Sort the safe positions by distance to the ball
+    sorted_safe_positions = sorted(distances_to_ball.items(), key=lambda item: item[1])
+
+    # Find the next safe point for the robot
+    for pos_name, _ in sorted_safe_positions:
+        safe_point = safe_points[pos_name]
+
+        # Calculate the vector for the robot's path
+        vector_to_safe_point = vector_between_points(robot_position, safe_point)
+
+        # Check if the path to the safe point intersects with the cross box or goes beyond any walls or into the orange ball
+        if not vector_intersects_box(robot_position, vector_to_safe_point, box_center, box_width, robot_width)\
+                and (shared_state.left_wall < safe_point[0] < shared_state.right_wall)\
+                and (shared_state.lower_wall < safe_point[1] < shared_state.upper_wall)\
+                and not vector_insersects_orange(robot_position, vector_to_safe_point, orange_center, orange_radius):
+            print(safe_points)
+            print("Next point to go to: ", safe_point)
+            return vector_to_safe_point, safe_point
+
+    return None  # Return None if no safe point is found (maybe go and take the ball, then
+
+
 def vector_intersects_box(robot_position, vector, box_center, box_width, robot_width):
     box_left = int(box_center[0] - box_width // 2)
     box_right = int(box_center[0] + box_width // 2)
