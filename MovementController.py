@@ -265,7 +265,7 @@ def orange_safe_points(robot_position, destination_position, orange_center, oran
             print("Next point to go to: ", safe_point)
             return vector_to_safe_point, safe_point
 
-    return None  # Return None if no safe point is found (maybe go and take the ball, then
+    return None  # Return None if no safe point is found (maybe go and take the orange ball, then)
 
 
 def vector_intersects_box(robot_position, vector, box_center, box_width, robot_width):
