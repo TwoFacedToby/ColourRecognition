@@ -13,7 +13,7 @@ use_video = False
 if use_video: # Video
     cam = cv2.VideoCapture("TrackVideos/new_room_new_video.mp4")
 else: # Camera
-    cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 
 def get_colors():
@@ -48,12 +48,12 @@ def get_colors():
             'name': 'wall',
             'hex_color': 'F03A26',
             'h_lower': 0,
-            'h_upper': 8,
-            's_lower': 80,
-            's_upper': 255,
+            'h_upper': 195,
+            's_lower': 100,
+            's_upper': 238,
             'v_lower': 0,
-            'v_upper': 255,
-            'min_area': 200,
+            'v_upper': 246,
+            'min_area': 1100,
             'max_area': 0,
             'draw_color': (255, 0, 255)
         },
@@ -76,7 +76,7 @@ def get_colors():
             'h_lower': 21,
             'h_upper': 51,
             's_lower': 52,
-            's_upper': 94,
+            's_upper': 255,
             'v_lower': 207,
             'v_upper': 255,
             'min_area': 30,
@@ -221,6 +221,20 @@ def detect_multiple_colors_in_image(image, colors):
             if max_area == 0:  # Treat max_area 0 as infinite
                 max_area = float('inf')
             if min_area < area < max_area:
+                # Calculate aspect ratio and extent
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect_ratio = w / float(h)
+                rect_area = w * h
+                extent = area / float(rect_area)
+
+                # Define thresholds for filtering
+                aspect_ratio_threshold = 0.8  # Broadened threshold for aspect ratio
+                extent_threshold = 0.4  # Lowered threshold for extent
+
+                if color['name'] == 'robot':
+                    if not (aspect_ratio_threshold <= aspect_ratio <= 1 / aspect_ratio_threshold and extent > extent_threshold):
+                        continue  # Skip contours that are not close to rectangular
+
                 M = cv2.moments(contour)
                 if M['m00'] != 0:
                     cX = int(M['m10'] / M['m00'])

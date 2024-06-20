@@ -24,7 +24,7 @@ cv.createTrackbar('H2', TrackbarWindow, 0, 255, nothing)
 cv.createTrackbar('S2', TrackbarWindow, 0, 255, nothing)
 cv.createTrackbar('V2', TrackbarWindow, 0, 255, nothing)
 
-cap = cv.VideoCapture(1, cv.CAP_DSHOW)
+cap = cv.VideoCapture(0, cv.CAP_DSHOW)
 cap.set(cv.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 
 while cap.isOpened():
