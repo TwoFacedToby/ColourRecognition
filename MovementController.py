@@ -593,8 +593,6 @@ def safe_spot_to_corner(closest_wall_proximity):
             return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
         if closest_wall_proximity == 'bottom_right_corner':
             return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
-        else:
-            return (shared_state.cross_middle) # Arbitrary doesn't matter
     return None
 
 def calculate_distance(point1, point2):
