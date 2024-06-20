@@ -218,23 +218,7 @@ low_x_history = deque(maxlen=50)
 high_x_history = deque(maxlen=50)
 middle_points_history = deque(maxlen=100)
 
-# Grids for path
-grid_row = 75
-grid_col = 75
-
-glob_grid = None
-
 real_world_distance = shared_state.real_world_distance
-
-
-def all_grid_calc():
-    ret, image = cam.read() 
-    global glob_grid
-    cell_height, cell_width, glob_grid = initialize_grid(image, grid_row, grid_col)
-    update_grid_with_obstacles(image, glob_grid, cell_height, cell_width)
-    shared_state.current_cell_height = cell_height
-    shared_state.current_cell_width = cell_width
-    shared_state.current_grid = glob_grid
 
 
 def vector_intersects_box_with_image(image, robot_position, vector, box_center, box_width, robot_width):
@@ -558,6 +542,16 @@ def detect_multiple_colors_in_image(image, colors):
             start_positionNick = tuple(map(int, start_position))
             ball2 = tuple(map(int, ball))
             cv2.line(image, start_positionNick, ball2, (0, 255, 0), 2)
+
+    '''Drawing some test for balls in corners'''
+    for ball in ball_positions:
+        if ball[0] is not None and ball[1] is not None:
+            proximity = new_check_wall_proximity(ball[0], ball[1])
+            if proximity is not None:
+                spot = safe_spot_to_corner(proximity)
+                if spot is not None:
+                    spot = tuple(map(int, spot))
+                    cv2.circle(image, spot, 5, (0, 255, 0), -1)  # Green spot at safe points on corners
     
 
     #temp_vector = vector_between_points(shared_state.real_position_robo, ball_positions[0])
@@ -803,7 +797,72 @@ def is_path_through_orange(robot_position, vector, orange_position, orange_width
         line_intersects_line(robot_position, target_position, bottom_left, top_left)):
             print("The robot's path intersects with the orange ball.")
             return True
-    return false
+    return False
+
+
+def new_check_wall_proximity(ball_x, ball_y, threshold=400): #This threshold needs to be lower, was high for testing
+    """
+    Checks which wall the ball is closest to within a given threshold.
+
+    Parameters:
+    - ball_x: x-coordinate of the ball.
+    - ball_y: y-coordinate of the ball.
+    - left_wall_x: x-coordinate of the left wall.
+    - right_wall_x: x-coordinate of the right wall.
+    - top_wall_y: y-coordinate of the top wall.
+    - bottom_wall_y: y-coordinate of the bottom wall.
+    - threshold: Distance threshold to consider the ball close to the wall (default is 40 pixels).
+
+    Returns:
+    - A string indicating which wall the ball is closest to, or None if it's not close to any wall.
+    """
+    if shared_state.left_wall is not None and abs(ball_x - shared_state.left_wall) <= threshold:
+        if (abs(ball_y - shared_state.upper_wall) <= threshold):
+            print("Top left corner")
+            return "top_left_corner"
+        if abs(ball_y - shared_state.lower_wall) <= threshold:
+            print("Bottom left corner")
+            return "bottom_left_corner"
+        print("left")
+        return 'left'
+    elif shared_state.right_wall is not None and abs(ball_x - shared_state.right_wall) <= threshold:
+        if (abs(ball_y - shared_state.upper_wall) <= threshold):
+            print("Top right corner")
+            return "top_right_corner"
+        if abs(ball_y - shared_state.lower_wall) <= threshold:
+            print("Bottom right corner")
+            return "bottom_right_corner"
+        print("right")
+        return 'right'
+    elif shared_state.upper_wall is not None and abs(ball_y - shared_state.upper_wall) <= threshold:
+        print("top")
+        return 'top'
+    elif shared_state.lower_wall is not None and abs(ball_y - shared_state.lower_wall) <= threshold:
+        print("bottom")
+        return 'bottom'
+    else:
+        return None
+
+def safe_spot_to_corner(closest_wall_proximity):
+    off_shoot = 0.4
+
+    def point_between(p1, p2, ratio):
+        point_between = (p1[0] + ratio * (p2[0] - p1[0]), p1[1] + ratio * (p2[1] - p1[1]))
+        return point_between
+
+    if closest_wall_proximity is not None:
+        if closest_wall_proximity == 'top_left_corner':
+            return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
+        if closest_wall_proximity == 'top_right_corner':
+            return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
+        if closest_wall_proximity == 'bottom_left_corner':
+            return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+        if closest_wall_proximity == 'bottom_right_corner':
+            return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+        else:
+            return (shared_state.cross_middle) # Arbitrary doesn't matter
+    return None
+
 
 
 
