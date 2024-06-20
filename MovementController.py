@@ -522,9 +522,21 @@ def check_wall_proximity(ball_x, ball_y, threshold=40):
     - A string indicating which wall the ball is closest to, or None if it's not close to any wall.
     """
     if abs(ball_x - shared_state.left_wall) <= threshold:
+        if (abs(ball_y - shared_state.upper_wall) <= threshold): #Corner
+            print("Top left corner")
+            return 'top_left_corner'
+        if abs(ball_y - shared_state.lower_wall) <= threshold: #Corner
+            print("Bottom left corner")
+            return 'bottom_left_corner'
         print("left")
         return 'left'
     elif abs(ball_x - shared_state.right_wall) <= threshold:
+        if (abs(ball_y - shared_state.upper_wall) <= threshold): #Corner
+            print("Top right corner")
+            return "top_right_corner"
+        if abs(ball_y - shared_state.lower_wall) <= threshold: #Corner
+            print("Bottom right corner")
+            return "bottom_right_corner"
         print("right")
         return 'right'
     elif abs(ball_y - shared_state.upper_wall) <= threshold:
@@ -566,8 +578,24 @@ def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
     else:
         return None, None, None
 
+def safe_spot_to_corner(closest_wall_proximity):
+    off_shoot = 0.4
+    def point_between(p1, p2, ratio):
+        point_between = (p1[0] + ratio * (p2[0] - p1[0]), p1[1] + ratio * (p2[1] - p1[1]))
+        return point_between
 
-
+    if closest_wall_proximity is not None:
+        if closest_wall_proximity == 'top_left_corner':
+            return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
+        if closest_wall_proximity == 'top_right_corner':
+            return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
+        if closest_wall_proximity == 'bottom_left_corner':
+            return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+        if closest_wall_proximity == 'bottom_right_corner':
+            return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+        else:
+            return (shared_state.cross_middle) # Arbitrary doesn't matter
+    return None
 
 def calculate_distance(point1, point2):
     """ Calculate the Euclidean distance between two points. """
