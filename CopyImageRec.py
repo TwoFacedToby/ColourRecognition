@@ -225,14 +225,14 @@ def get_colors():
             'name': 'balls',
             'hex_color': 'FEFDFD',
             'h_lower': 0,
-            'h_upper': 164,
+            'h_upper': 255,
             's_lower': 0,
-            's_upper': 18,
-            'v_lower': 201,
+            's_upper': 32,
+            'v_lower': 174,
             'v_upper': 255,
-            'min_area': 40,
+            'min_area': 20,
             'max_area': 200,
-            'draw_color': (255, 255, 255)
+            'draw_color': (0, 100, 255)
         },
         {
             'name': 'egg',
@@ -248,60 +248,60 @@ def get_colors():
             'draw_color': (0, 0, 255)
         },
         {
-            'name': 'wall',
-            'hex_color': 'F03A26',
-            'h_lower': 0,
-            'h_upper': 195,
-            's_lower': 100,
-            's_upper': 238,
-            'v_lower': 0,
-            'v_upper': 246,
-            'min_area': 1100,
-            'max_area': 999999,
-            'draw_color': (255, 0, 255)
-        },
-        {
             'name': 'robot',
             'hex_color': '35CCC6',
-            'h_lower': 22,
-            'h_upper': 128,
-            's_lower': 90,
+            'h_lower': 30,
+            'h_upper': 50,
+            's_lower': 38,
             's_upper': 255,
-            'v_lower': 81,
+            'v_lower': 0,
             'v_upper': 255,
-            'min_area': 400,
-            'max_area': 1500,
+            'min_area':60,
+            'max_area': 3000,
             'draw_color': (255, 0, 0)
         },
         {
             'name': 'goal',
             'hex_color': 'FEFFAB',
-            'h_lower': 21,
-            'h_upper': 51,
-            's_lower': 52,
+            'h_lower': 50,
+            'h_upper': 98,
+            's_lower': 18,
             's_upper': 255,
-            'v_lower': 207,
+            'v_lower': 0,
             'v_upper': 255,
-            'min_area': 30,
+            'min_area': 50,
             'max_area': 600,
             'draw_color': (0, 0, 0)
         },
         {
             'name': 'orange_balls',
             'hex_color': 'FE9546',
-            'h_lower': 13,
-            'h_upper': 44,
-            's_lower': 87,
-            's_upper': 212,
-            'v_lower': 220,
+            'h_lower': 9,
+            'h_upper': 20,
+            's_lower': 88,
+            's_upper': 255,
+            'v_lower': 188,
             'v_upper': 255,
-            'min_area': 70,
+            'min_area': 20,
             'max_area': 300,
             'draw_color': (0, 255, 255)
         }
     ]
 
+
+bgr_colors = [
+    {'name': 'wall', 'b_lower': 19, 'g_lower': 24, 'r_lower': 149, 'b_upper': 139, 'g_upper': 124, 'r_upper': 255, 'draw_color': (255, 255, 255), 'min_area': 900, 'max_area': 500000}
+]
+
+middle_points_history = deque(maxlen=50)
+low_x_history = deque(maxlen=50)
+high_x_history = deque(maxlen=50)
+low_y_history = deque(maxlen=50)
+high_y_history = deque(maxlen=50)
+
+
 def detect_multiple_colors_in_image(image, colors):
+
     ball_positions = []
     robot_positions = []
     goal_position = None
@@ -311,11 +311,9 @@ def detect_multiple_colors_in_image(image, colors):
     lowest_x_point = None
     cross_positions = []
     wall_y_positions = []
-    low_y_history = []
-    high_y_history = []
-    middle_points_history = deque(maxlen=100)
-    low_x_history = deque(maxlen=50)
-    high_x_history = deque(maxlen=50)
+    orange_ball = None
+    
+    
     middle_cross_point = None  # Initialize middle_cross_point
 
     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -346,25 +344,103 @@ def detect_multiple_colors_in_image(image, colors):
                 rect_area = w * h
                 extent = area / float(rect_area)
 
+                hu_moment1_lower = 0.15  # Lower bound of the range
+                hu_moment1_upper = 0.196  # Upper bound of the range
+                # Define the range for circularity
+                circularity_lower = 0.8  # Lower bound of the circularity range
+                circularity_upper = 1.2  # Upper bound of the circularity range
+
+                perimeter = cv2.arcLength(contour, True)
+                # Calculate circularity
+                circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
+
                 # Define thresholds for filtering
-                aspect_ratio_threshold = 0.7  # Broadened threshold for aspect ratio
+                aspect_ratio_threshold = 0.5  # Broadened threshold for aspect ratio
                 extent_threshold = 0.3  # Lowered threshold for extent
 
-                if color['name'] == 'robot':
-                    if not (aspect_ratio_threshold <= aspect_ratio <= 1 / aspect_ratio_threshold and extent > extent_threshold):
-                        continue  # Skip contours that are not close to rectangular
+                # Calculate Hu Moments
+                hu_moments = cv2.HuMoments(cv2.moments(contour)).flatten()
+                hu_moment1 = hu_moments[0]
+                #print("HU: ", hu_moment1)
+                #print("Aspect: ", aspect_ratio)
+                #print("Extent: ", extent)
 
+                '''
+                aspect_ratio_threshold <= aspect_ratio <= 1 / aspect_ratio_threshold and
+                    extent > extent_threshold and
+                '''
+
+                '''
+                if color['name'] == 'robot':
+                    if not (
+                    hu_moment1_lower <= hu_moment1 <= hu_moment1_upper):
+                        continue  # Skip contours that are not close to rectangular
+                '''
+                
                 M = cv2.moments(contour)
                 if M['m00'] != 0:
                     cX = int(M['m10'] / M['m00'])
                     cY = int(M['m01'] / M['m00'])
                     if color['name'] == 'balls':
+                        #print("normal ball: ", cX, " ", cY)
                         ball_positions.append((cX, cY))
                     elif color['name'] == 'robot':
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
                         goal_position = (cX, cY)
-                    elif color['name'] == 'wall':
+                    elif color['name'] == 'orange_balls':
+                        
+                        orange_ball = (cX, cY)
+                        orange_ball = tuple(orange_ball)
+                        
+                        
+                    #elif color['name'] == 'wall':
+                        #wall_positions.append((cX, cY))
+                        #for point in contour:
+                            #x, y = point[0]
+                            #if middle_x - 80 <= x <= middle_x + 80 and middle_y - 80 <= y <= middle_y + 80:
+                            #    cross_positions.append((x, y))
+                            #else:
+                            #    wall_x_positions.append(x)
+                            #    wall_y_positions.append(y)
+                        
+                cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
+
+    shared_state.orange_ball = orange_ball
+
+    # Process BGR colors
+    for color in bgr_colors:
+        lower_bound = np.array([color['b_lower'], color['g_lower'], color['r_lower']])
+        upper_bound = np.array([color['b_upper'], color['g_upper'], color['r_upper']])
+
+        # Create a mask for the color range
+        mask = cv2.inRange(image, lower_bound, upper_bound)
+
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # Draw contours around detected areas and record positions
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            min_area = color.get('min_area', 0)
+            max_area = color.get('max_area', float('inf'))
+            if max_area == 0:  # Treat max_area 0 as infinite
+                max_area = float('inf')
+            if min_area < area < max_area:
+                # Calculate aspect ratio and extent
+                x, y, w, h = cv2.boundingRect(contour)
+                aspect_ratio = w / float(h)
+                rect_area = w * h
+                extent = area / float(rect_area)
+
+                # Define thresholds for filtering
+                aspect_ratio_threshold = 0.7  # Broadened threshold for aspect ratio
+                extent_threshold = 0.3  # Lowered threshold for extent
+
+                M = cv2.moments(contour)
+                if M['m00'] != 0:
+                    cX = int(M['m10'] / M['m00'])
+                    cY = int(M['m01'] / M['m00'])
+                    if color['name'] == 'wall':
                         wall_positions.append((cX, cY))
                         for point in contour:
                             x, y = point[0]
@@ -373,9 +449,12 @@ def detect_multiple_colors_in_image(image, colors):
                             else:
                                 wall_x_positions.append(x)
                                 wall_y_positions.append(y)
-                cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
+                    cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
+
+    #print("BALLS: ", ball_positions)
 
     for pos in ball_positions:
+        
         cv2.circle(image, pos, 5, (0, 0, 0), -1)
 
     for pos in robot_positions:
@@ -389,7 +468,7 @@ def detect_multiple_colors_in_image(image, colors):
         middle_points_history.append(middle_point)
         most_common_middle_point = Counter(middle_points_history).most_common(1)[0][0]
         shared_state.middlepoint = most_common_middle_point
-        cv2.circle(image, most_common_middle_point, 5, (0, 0, 0), -1)
+        cv2.circle(image, most_common_middle_point, 5, (0, 0,0), -1)
 
     lowest_x_with_center_y = None
     highest_x_with_center_y = None
@@ -489,7 +568,7 @@ def calculate_distance(point1, point2):
 
 # Given values
 robot_real_height = 17.0  # cm
-camera_height = 187  # cm
+camera_height = 188  # cm
 field = 84
 
 

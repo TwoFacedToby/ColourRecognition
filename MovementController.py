@@ -46,7 +46,7 @@ def ball_is_present(target_ball, ball_positions, error_margin=5):
 
 # Given values
 robot_real_height = 16.0  # cm
-camera_height = 189  # cm
+camera_height = 187  # cm
 
 def calculate_real_world_position(robot_pos, image_height):
     """
@@ -260,6 +260,43 @@ def vector_intersects_box(robot_position, vector, box_center, box_width, robot_w
     return False
 
 
+def find_closest_safe_point(position):
+    """
+    Finds the closest safe point to the given position.
+
+    Parameters:
+    position (tuple): The current position (either ball or robot).
+    cross_positions (dict): Dictionary containing cross positions with keys 'top_left', 'top_right', 'bottom_left', 'bottom_right'.
+
+    Returns:
+    str: The name of the closest cross position.
+    """
+
+    cross_positions = {
+        'top_left': shared_state.cross_top_left,
+        'top_right': shared_state.cross_top_right,
+        'bottom_left': shared_state.cross_bottom_left,
+        'bottom_right': shared_state.cross_bottom_right
+    }
+
+    if not isinstance(position, tuple) or len(position) != 2:
+        raise ValueError("Position must be a tuple of two numerical values")
+
+
+    # Calculate the distances from the given position to each cross position
+    distances = {
+        'top_left': np.linalg.norm(np.array(position) - np.array(cross_positions['top_left'])),
+        'top_right': np.linalg.norm(np.array(position) - np.array(cross_positions['top_right'])),
+        'bottom_left': np.linalg.norm(np.array(position) - np.array(cross_positions['bottom_left'])),
+        'bottom_right': np.linalg.norm(np.array(position) - np.array(cross_positions['bottom_right'])),
+    }
+
+    # Find the cross position with the minimum distance
+    closest_cross_position = min(distances, key=distances.get)
+    
+    return closest_cross_position
+
+
 def find_next_safe_point(robot_position, ball_position, box_center, box_width, robot_width):
     # Access cross positions directly from shared_state
     cross_positions = {
@@ -297,10 +334,55 @@ def find_next_safe_point(robot_position, ball_position, box_center, box_width, r
 
     return None  # Return None if no safe point is found
 
+def is_ball_in_obstacle(ball_position, box_center, box_width, box_height):
+    # Calculate half the width and height of the box
+    half_width = box_width / 2
+    half_height = box_height / 2
 
+    # Calculate the boundaries of the box
+    left_boundary = box_center[0] - half_width
+    right_boundary = box_center[0] + half_width
+    bottom_boundary = box_center[1] - half_height
+    top_boundary = box_center[1] + half_height
+
+    # Check if the ball is within the boundaries
+    if (left_boundary <= ball_position[0] <= right_boundary) and \
+        (bottom_boundary <= ball_position[1] <= top_boundary):
+        return True
+    else:
+        return False
+
+
+def position_to_move_to_ball_in_obstacle(ball_position, box_center, distance):
+    # Convert the positions to numpy arrays
+    ball_position = np.array(ball_position)
+    box_center = np.array(box_center)
+
+    # Calculate the direction vector from the ball to the obstacle center
+    direction_vector = box_center - ball_position
+
+    # Normalize the direction vector
+    norm = np.linalg.norm(direction_vector)
+    if norm == 0:
+        norm = 0.1 # We cant divide by 0, but we can use a low value
+    direction_unit_vector = direction_vector / norm
+
+    # Calculate the starting position of the vector
+    start_position = ball_position - direction_unit_vector * distance
+
+    start_vec = vector_between_points(shared_state.real_position_robo, start_position)
+
+    return start_vec
+
+
+# Initialize global variables
+cross_state = 0
+cross_vectors_initialized = False
+cross_vector = None
 
 
 def next_command_from_state(state):
+    global cross_state, cross_vector, cross_vectors_initialized
     global current_target_ball
     global global_step
 
@@ -345,8 +427,15 @@ def next_command_from_state(state):
             closest_ball_coords = (ball_positions[closest_ball_index].x, ball_positions[closest_ball_index].y)
             current_target_ball = ball_positions[closest_ball_index]
         elif not ball_positions:  # No balls left
-            print("Navigating to goal!")
-            return navigate_to_goal(robot, state.big_goal_pos)
+            if shared_state.orange_ball:
+                print("Finding orange ball")
+                vector = vector_between_points(shared_state.real_position_robo, shared_state.orange_ball)
+                closest_ball_coords = shared_state.orange_ball
+                print("Orange coord: ", closest_ball_coords)
+                current_target_ball = Ball(closest_ball_coords[0], closest_ball_coords[1], False)
+            else:
+                print("Navigating to goal!")
+                return navigate_to_goal(robot, state.big_goal_pos)
         
 
     
@@ -363,6 +452,79 @@ def next_command_from_state(state):
 
     if closest_ball_coords:
 
+
+        if is_ball_in_obstacle(closest_ball_coords, shared_state.cross_middle, 60, 50) or cross_state > 0:
+
+
+            safe_point_robot = find_closest_safe_point(shared_state.real_position_robo)
+            print("Robots safe point for x: ", safe_point_robot)
+            safe_point_ball = find_closest_safe_point(closest_ball_coords)
+            print("Balls safe point for x: ", safe_point_ball)
+
+            if safe_point_robot == safe_point_ball or cross_state == 2:
+                if not cross_vectors_initialized:
+                    cross_safe_point = position_to_move_to_ball_in_obstacle(closest_ball_coords, shared_state.cross_middle, 160)
+                    cross_vector = cross_safe_point
+                    cross_vectors_initialized = True
+
+                if cross_state == 0:
+                    vector = cross_vector
+                    aim_rotation = angle_of_vector_t(-vector[0], -vector[1])
+                    temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+                    distance = vector_length(vector)
+                    normalized_distance = (840 / shared_state.half_field_pixel) * distance
+
+                    if -1 < temp < 1:
+                        cross_state = 1
+                        return f"forward_degrees {int(forward(normalized_distance - 40))} {movementSpeed}"
+                    else:
+                        return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
+                elif cross_state == 1:
+                    vector = temp_vec  # Move to the ball
+                    aim_rotation = angle_of_vector_t(-vector[0], -vector[1])
+                    temp = normalize_angle_difference(robot.rotation, aim_rotation)
+
+                    distance = vector_length(vector)
+                    normalized_distance = (840 / shared_state.half_field_pixel) * distance
+
+                    if -1 < temp < 1:
+                        cross_state = 2
+                        return f"forward_degrees {int(forward(normalized_distance - 150))} {movementSpeed}"
+                    else:
+                        return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
+
+                elif cross_state == 2:
+                    vector = closest_ball_coords  # Assuming we're driving backward from the ball
+                    distance = vector_length(vector)
+                    normalized_distance = (840 / shared_state.half_field_pixel) * -distance
+
+                    cross_state = 0
+                    cross_vectors_initialized = False
+                    return f"forward_degrees {int(forward(-250))} {movementSpeed}"
+            else:
+                print("Robot will find next safe point")
+                vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 55)
+
+                vector = vector_to_safe_point
+
+                aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
+
+                temp = normalize_angle_difference(robot.rotation, aim_rotation)
+        
+
+                # Calculate the distance and normalize it using the reference vector magnitude and real world distance
+                distance = vector_length(vector)
+
+                #print("Distance between ball and robot: ", distance, " and reference vector ", shared_state.reference_vector_magnitude)
+                normalized_distance = (840/shared_state.half_field_pixel) * distance 
+                #print("Normalized distance: ", normalized_distance)
+
+                if -1 < temp < 1:
+                    return f"forward_degrees {int(forward(normalized_distance-100))} {movementSpeed}"
+                else:
+                    return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
 
         if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 50):
 
@@ -401,11 +563,14 @@ def next_command_from_state(state):
 
         if not vectors_initialized:
             closest_wall, V_parallel, V_perpendicular = handle_ball_near_wall(current_target_ball.x, current_target_ball.y, vector)
+            print("Closes wall: ", closest_wall)
+            print("Safe point: ", V_parallel)
             vectors_initialized = True
 
         if global_step == 0:
             # Perform the initial action for step 0
             vector = V_parallel
+            
             aim_rotation = angle_of_vector_t(-vector[0], -vector[1])  # Checking for rotation
             temp = normalize_angle_difference(robot.rotation, aim_rotation)
 
@@ -435,14 +600,14 @@ def next_command_from_state(state):
             if -1 < temp < 1:
                 print("step 2 action: forward")
                 global_step = 2
-                return f"forward_degrees {int(forward(normalized_distance-150))} {movementSpeed}"
+                return f"forward_degrees {int(forward(normalized_distance-30))} {movementSpeed}"
             else:
                 print("step 2 action: turn")
                 return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
 
         elif global_step == 2:
             print("HALLO")
-            vector = V_perpendicular
+            
 
             # Calculate the distance and normalize it using the reference vector magnitude and real world distance
             distance = vector_length(vector)
@@ -454,7 +619,7 @@ def next_command_from_state(state):
             print("DISTANCE: ", normalized_distance)
             global_step = 0  # Reset the state
             vectors_initialized = False  # Reset the initialization flag
-            return f"forward_degrees {int(forward(distance_tweak))} {movementSpeed}"
+            return f"forward_degrees {int(forward(-250))} {movementSpeed}"
             
 
 
@@ -572,6 +737,11 @@ def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
             wall_orientation = 'vertical'
         elif closest_wall in ['top', 'bottom']:
             wall_orientation = 'horizontal'
+        elif closest_wall in ['top_left_corner', 'top_right_corner', 'bottom_left_corner', 'bottom_right_corner']:
+            safe_spot_corner = safe_spot_to_corner(closest_wall)
+            V_parallel = safe_spot_corner
+            V_perpendicular = None
+            return closest_wall, V_parallel, V_perpendicular
         
         V_parallel, V_perpendicular = decompose_vector(vector, wall_orientation)
         return closest_wall, V_parallel, V_perpendicular
@@ -580,19 +750,25 @@ def handle_ball_near_wall(ball_x, ball_y, vector, threshold=40):
 
 def safe_spot_to_corner(closest_wall_proximity):
     off_shoot = 0.4
+
     def point_between(p1, p2, ratio):
-        point_between = (p1[0] + ratio * (p2[0] - p1[0]), p1[1] + ratio * (p2[1] - p1[1]))
-        return point_between
+        return (p1[0] + ratio * (p2[0] - p1[0]), p1[1] + ratio * (p2[1] - p1[1]))
 
     if closest_wall_proximity is not None:
         if closest_wall_proximity == 'top_left_corner':
-            return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
-        if closest_wall_proximity == 'top_right_corner':
-            return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
-        if closest_wall_proximity == 'bottom_left_corner':
-            return point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
-        if closest_wall_proximity == 'bottom_right_corner':
-            return point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+            corner_point = point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
+        elif closest_wall_proximity == 'top_right_corner':
+            corner_point = point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.upper_wall), off_shoot)
+        elif closest_wall_proximity == 'bottom_left_corner':
+            corner_point = point_between((shared_state.left_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+        elif closest_wall_proximity == 'bottom_right_corner':
+            corner_point = point_between((shared_state.right_wall, shared_state.middlepoint[1]), (shared_state.middlepoint[0], shared_state.lower_wall), off_shoot)
+        else:
+            return None
+
+        # Compute the point between the corner_point and shared_state.real_robo_position
+        return vector_between_points(shared_state.real_position_robo, corner_point)
+
     return None
 
 def calculate_distance(point1, point2):
@@ -617,7 +793,7 @@ def navigate_to_goal(robot, goal_position):
 
     print("Distance to goal: ", normalized_goal_distance)
 
-    if normalized_goal_distance <= 360:
+    if normalized_goal_distance <= 300:
         print("Robot is at the goal.")
         print()
         return "brush 80"

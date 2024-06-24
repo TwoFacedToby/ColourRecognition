@@ -22,14 +22,14 @@ def get_colors():
             'name': 'balls',
             'hex_color': 'FEFDFD',
             'h_lower': 0,
-            'h_upper': 164,
+            'h_upper': 255,
             's_lower': 0,
-            's_upper': 18,
-            'v_lower': 201,
+            's_upper': 50,
+            'v_lower': 210,
             'v_upper': 255,
-            'min_area': 40,
+            'min_area': 100,
             'max_area': 200,
-            'draw_color': (255, 255, 255)
+            'draw_color': (0, 100, 255)
         },
         {
             'name': 'egg',
@@ -48,13 +48,13 @@ def get_colors():
             'name': 'wall',
             'hex_color': 'F03A26',
             'h_lower': 0,
-            'h_upper': 195,
-            's_lower': 100,
-            's_upper': 238,
-            'v_lower': 0,
-            'v_upper': 246,
-            'min_area': 1100,
-            'max_area': 0,
+            'h_upper': 8,
+            's_lower': 104,
+            's_upper': 255,
+            'v_lower': 141,
+            'v_upper': 255,
+            'min_area': 400,
+            'max_area': 99999999,
             'draw_color': (255, 0, 255)
         },
         {
@@ -227,20 +227,45 @@ def detect_multiple_colors_in_image(image, colors):
                 rect_area = w * h
                 extent = area / float(rect_area)
 
+                hu_moment1_lower = 0.15  # Lower bound of the range
+                hu_moment1_upper = 0.18  # Upper bound of the range
+                # Define the range for circularity
+                circularity_lower = 0.8  # Lower bound of the circularity range
+                circularity_upper = 1.2  # Upper bound of the circularity range
+
+                perimeter = cv2.arcLength(contour, True)
+                # Calculate circularity
+                circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
+
                 # Define thresholds for filtering
-                aspect_ratio_threshold = 0.8  # Broadened threshold for aspect ratio
-                extent_threshold = 0.4  # Lowered threshold for extent
+                aspect_ratio_threshold = 0.5  # Broadened threshold for aspect ratio
+                extent_threshold = 0.5  # Lowered threshold for extent
+
+                # Calculate Hu Moments
+                hu_moments = cv2.HuMoments(cv2.moments(contour)).flatten()
+                hu_moment1 = hu_moments[0]
+
 
                 if color['name'] == 'robot':
-                    if not (aspect_ratio_threshold <= aspect_ratio <= 1 / aspect_ratio_threshold and extent > extent_threshold):
+                    if not (aspect_ratio_threshold <= aspect_ratio <= 1 / aspect_ratio_threshold and
+                    extent > extent_threshold and
+                    hu_moment1_lower <= hu_moment1 <= hu_moment1_upper):
                         continue  # Skip contours that are not close to rectangular
+
+                
+                
+
+
 
                 M = cv2.moments(contour)
                 if M['m00'] != 0:
                     cX = int(M['m10'] / M['m00'])
                     cY = int(M['m01'] / M['m00'])
                     if color['name'] == 'balls':
-                        ball_positions.append((cX, cY))
+                        
+                        if circularity_lower <= circularity <= circularity_upper:
+                            print(f"Ball Contour, Circularity: {circularity}")
+                            ball_positions.append((cX, cY))
                     elif color['name'] == 'robot':
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
@@ -256,10 +281,11 @@ def detect_multiple_colors_in_image(image, colors):
                                 wall_y_positions.append(y)
                 cv2.drawContours(image, [contour], -1, color['draw_color'], 2)
 
-    for pos in ball_positions:
-        cv2.circle(image, pos, 5, (0, 0, 0), -1)
+    #for pos in ball_positions:
+        #cv2.circle(image, pos, 5, (0, 0, 0), -1)
 
     for pos in robot_positions:
+        
         cv2.circle(image, pos, 5, (0, 0, 255), -1)
 
     if wall_positions:

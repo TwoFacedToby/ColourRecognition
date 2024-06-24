@@ -37,3 +37,6 @@ cross_top_left = None
 cross_top_right = None
 cross_bottom_left = None
 cross_bottom_right = None
+
+## temp orange
+orange_ball = None
