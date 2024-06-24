@@ -224,11 +224,11 @@ def get_colors():
         {
             'name': 'balls',
             'hex_color': 'FEFDFD',
-            'h_lower': 0,
+            'h_lower': 71,
             'h_upper': 255,
             's_lower': 0,
-            's_upper': 32,
-            'v_lower': 174,
+            's_upper': 38,
+            'v_lower': 206,
             'v_upper': 255,
             'min_area': 20,
             'max_area': 200,
@@ -250,13 +250,13 @@ def get_colors():
         {
             'name': 'robot',
             'hex_color': '35CCC6',
-            'h_lower': 30,
+            'h_lower': 23,
             'h_upper': 50,
-            's_lower': 38,
+            's_lower': 0,
             's_upper': 255,
             'v_lower': 0,
             'v_upper': 255,
-            'min_area':60,
+            'min_area':200,
             'max_area': 3000,
             'draw_color': (255, 0, 0)
         },
@@ -265,12 +265,12 @@ def get_colors():
             'hex_color': 'FEFFAB',
             'h_lower': 50,
             'h_upper': 98,
-            's_lower': 18,
+            's_lower': 83,
             's_upper': 255,
             'v_lower': 0,
             'v_upper': 255,
             'min_area': 50,
-            'max_area': 600,
+            'max_area': 2000,
             'draw_color': (0, 0, 0)
         },
         {
@@ -325,8 +325,16 @@ def detect_multiple_colors_in_image(image, colors):
         lower_bound = np.array([color['h_lower'], color['s_lower'], color['v_lower']])
         upper_bound = np.array([color['h_upper'], color['s_upper'], color['v_upper']])
 
+    
+
+
         # Create a mask for the color range
         mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
+
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
 
         # Find contours in the mask
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -382,8 +390,11 @@ def detect_multiple_colors_in_image(image, colors):
                     cX = int(M['m10'] / M['m00'])
                     cY = int(M['m01'] / M['m00'])
                     if color['name'] == 'balls':
-                        #print("normal ball: ", cX, " ", cY)
-                        ball_positions.append((cX, cY))
+                        
+
+                        if(circularity > 0.40):
+                            #print("normal ball: ", cX, " ", cY, " Circ: ", circularity)
+                            ball_positions.append((cX, cY))
                     elif color['name'] == 'robot':
                         robot_positions.append((cX, cY))
                     elif color['name'] == 'goal':
@@ -569,7 +580,7 @@ def calculate_distance(point1, point2):
 # Given values
 robot_real_height = 17.0  # cm
 camera_height = 188  # cm
-field = 84
+field = 85
 
 
 def calculate_real_world_position(robot_pos, image_height):

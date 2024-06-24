@@ -52,6 +52,7 @@ def real_program():
                         break
                     else:
                         print("State is None, retrying...")
+                        send_command_via_shell(shell, "turn 45")
             except Exception as e:
                 send_command_via_shell(shell, "brush 0")
                 print("Exception caught:", str(e))
@@ -70,8 +71,10 @@ def real_program():
                     print(command)  # send_command_via_shell(shell, command)
                     if ssh_client is not None and shell is not None:
                         send_command_via_shell(shell, command)
-                        if command == "brush 80":
+                        if command == "brush 100":
                             time.sleep(10)
+                            send_command_via_shell(shell, "brush -50")
+
 
             else:
                 cool -= 1

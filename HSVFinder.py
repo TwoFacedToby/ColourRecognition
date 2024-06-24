@@ -1,48 +1,88 @@
-import cv2 as cv
+import cv2
 import numpy as np
+from tkinter import *
+from tkinter import ttk
 
-TrackbarWindow = "Trackbars"
-CameraWindow = "Camera"
+class HSVColorFinder:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("HSV Color Finder")
 
-def nothing(x):
-    pass
+        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW) # Camera Feed
+        self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
 
-# Create a window for the trackbars
-cv.namedWindow(TrackbarWindow, cv.WINDOW_NORMAL)
-cv.resizeWindow(TrackbarWindow, 600, 200)  # Set window size for trackbars
+        # Desired width and height for the camera feed window
+        self.window_width = 640
+        self.window_height = 480
 
-# Create a window for the camera feed
-cv.namedWindow(CameraWindow, cv.WINDOW_NORMAL)
-cv.resizeWindow(CameraWindow, 800, 600)  # Set window size for camera feed
+        self.lower_hue = IntVar(value=0)
+        self.upper_hue = IntVar(value=255)
+        self.lower_saturation = IntVar(value=0)
+        self.upper_saturation = IntVar(value=255)
+        self.lower_value = IntVar(value=0)
+        self.upper_value = IntVar(value=255)
 
-# H, S, V are for Lower Boundaries
-# H2, S2, V2 are for Upper Boundaries
-cv.createTrackbar('H', TrackbarWindow, 0, 255, nothing)
-cv.createTrackbar('S', TrackbarWindow, 0, 255, nothing)
-cv.createTrackbar('V', TrackbarWindow, 0, 255, nothing)
-cv.createTrackbar('H2', TrackbarWindow, 0, 255, nothing)
-cv.createTrackbar('S2', TrackbarWindow, 0, 255, nothing)
-cv.createTrackbar('V2', TrackbarWindow, 0, 255, nothing)
+        self.create_ui()
 
-cap = cv.VideoCapture(0, cv.CAP_DSHOW)
-cap.set(cv.CAP_PROP_AUTOFOCUS, 0)  # Disable autofocus
+        self.update()
 
-while cap.isOpened():
-    _, frame = cap.read()
-    H = cv.getTrackbarPos('H', TrackbarWindow)
-    S = cv.getTrackbarPos('S', TrackbarWindow)
-    V = cv.getTrackbarPos('V', TrackbarWindow)
-    H2 = cv.getTrackbarPos('H2', TrackbarWindow)
-    S2 = cv.getTrackbarPos('S2', TrackbarWindow)
-    V2 = cv.getTrackbarPos('V2', TrackbarWindow)
-    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-    lower_boundary = np.array([H, S, V])
-    upper_boundary = np.array([H2, S2, V2])
-    mask = cv.inRange(hsv, lower_boundary, upper_boundary)
-    final = cv.bitwise_and(frame, frame, mask=mask)
-    cv.imshow(CameraWindow, final)
+    def create_ui(self):
+        frame = Frame(self.root)
+        frame.pack(side=LEFT, padx=10, pady=10)
 
-    if cv.waitKey(1) == ord('q'): break
+        self.create_control(frame, "Lower Hue", self.lower_hue, 0, 255)
+        self.create_control(frame, "Upper Hue", self.upper_hue, 0, 255)
+        self.create_control(frame, "Lower Saturation", self.lower_saturation, 0, 255)
+        self.create_control(frame, "Upper Saturation", self.upper_saturation, 0, 255)
+        self.create_control(frame, "Lower Value", self.lower_value, 0, 255)
+        self.create_control(frame, "Upper Value", self.upper_value, 0, 255)
 
-cap.release()
-cv.destroyAllWindows()
+    def create_control(self, parent, label, variable, min_val, max_val):
+        label = Label(parent, text=label)
+        label.pack(anchor=W)
+
+        entry = Entry(parent, textvariable=variable)
+        entry.pack(anchor=W)
+
+        slider = Scale(parent, from_=min_val, to=max_val, orient=HORIZONTAL, variable=variable)
+        slider.pack(anchor=W)
+
+    def update(self):
+        ret, frame = self.cap.read()
+        if not ret:
+            self.root.quit()
+            return
+
+        # Resize the frame to the desired window size
+        frame = cv2.resize(frame, (self.window_width, self.window_height))
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        
+
+
+        lower_bound = np.array([self.lower_hue.get(), self.lower_saturation.get(), self.lower_value.get()])
+        upper_bound = np.array([self.upper_hue.get(), self.upper_saturation.get(), self.upper_value.get()])
+        mask = cv2.inRange(hsv, lower_bound, upper_bound)
+
+        
+
+        result = cv2.bitwise_and(frame, frame, mask=mask)
+
+        
+
+        cv2.imshow("Camera Feed", frame)
+        cv2.imshow("Mask", result)
+
+        self.root.after(10, self.update)
+
+    def on_closing(self):
+        self.cap.release()
+        cv2.destroyAllWindows()
+        self.root.destroy()
+
+if __name__ == "__main__":
+    root = Tk()
+    app = HSVColorFinder(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    root.mainloop()
