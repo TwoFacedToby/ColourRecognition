@@ -224,18 +224,18 @@ def get_colors():
         {
             'name': 'balls',
             'hex_color': 'FEFDFD',
-            'h_lower': 71,
-            'h_upper': 255,
+            'h_lower': 0,
+            'h_upper': 56,
             's_lower': 0,
-            's_upper': 38,
-            'v_lower': 206,
+            's_upper': 41,
+            'v_lower': 195,
             'v_upper': 255,
-            'min_area': 20,
+            'min_area': 15,
             'max_area': 200,
             'draw_color': (0, 100, 255)
         },
         {
-            'name': 'egg',
+            'name': 'egg',  
             'hex_color': 'FDF7F5',
             'h_lower': 0,
             'h_upper': 164,
@@ -250,9 +250,9 @@ def get_colors():
         {
             'name': 'robot',
             'hex_color': '35CCC6',
-            'h_lower': 23,
+            'h_lower': 25,
             'h_upper': 50,
-            's_lower': 0,
+            's_lower': 34,
             's_upper': 255,
             'v_lower': 0,
             'v_upper': 255,
@@ -277,10 +277,10 @@ def get_colors():
             'name': 'orange_balls',
             'hex_color': 'FE9546',
             'h_lower': 9,
-            'h_upper': 20,
+            'h_upper': 27,
             's_lower': 88,
             's_upper': 255,
-            'v_lower': 188,
+            'v_lower': 225,
             'v_upper': 255,
             'min_area': 20,
             'max_area': 300,
@@ -392,7 +392,7 @@ def detect_multiple_colors_in_image(image, colors):
                     if color['name'] == 'balls':
                         
 
-                        if(circularity > 0.40):
+                        if(circularity > 0.0):
                             #print("normal ball: ", cX, " ", cY, " Circ: ", circularity)
                             ball_positions.append((cX, cY))
                     elif color['name'] == 'robot':
@@ -697,6 +697,8 @@ def render():
     front_and_back = robot_front_and_back(state.robot)
     rob_rot = robot_rotation_old(front_and_back)
 
+    
+
     if front_and_back is not None:
         robot_pos = robot_position(front_and_back)
         cv2.circle(image, (int(robot_pos[0]), int(robot_pos[1])), 5, (255, 0, 0), -1)
@@ -707,8 +709,17 @@ def render():
             shared_state.real_position_robo = coords
 
     if goal_position is not None:
+        shared_state.the_goal_pos = goal_position
         robot_center = robot_positions[0]
         distance_to_goal = calculate_distance(robot_center, goal_position)
+        normalized_goal_distance = (840 / shared_state.half_field_pixel) * distance_to_goal
+        #print("Distance to goal: ", normalized_goal_distance)
+        robo_goal_angle = vector_between_points(shared_state.real_position_robo, state.big_goal_pos)
+        robo_goal_rotate = angle_of_vector_t(-robo_goal_angle[0], -robo_goal_angle[1])
+        #print("Angle between robo and goal: ", robo_goal_rotate)
+        temp = normalize_angle_difference(rob_rot, robo_goal_rotate)
+        
+        #print("Normalized: ", temp)
 
     cv2.imshow('Frame', image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -716,7 +727,18 @@ def render():
 
     return state
 
+def normalize_angle_difference(angle1, angle2):
+    difference = (angle1 - angle2 + 180) % 360 - 180
+    return difference if difference != -180 else 180
 
+
+def angle_of_vector_t(x, y):
+    angle = math.degrees(math.atan2(y, x))
+    if angle < 0:
+        angle += 360
+    # Invert the angle to correct the mirroring issue
+    angle = (360 - angle) % 360
+    return angle
 
 def adjust_exposure(image):
     alpha = 1    #param alpha: Contrast control. 1.0-3.0 for more contrast, <1.0 for less.

@@ -422,10 +422,27 @@ def next_command_from_state(state):
     global global_step
     global rotate_counter
 
-    if rotate_counter > 9:
+    
+
+    
+
+    robot_positions = robot_front_and_back(state.robot)
+
+    if robot_positions is None:
+        return "", None
+
+    robot_pos = robot_position(robot_positions)
+    
+    # Calculate the real-world position of the robot
+    real_robo_pos = shared_state.real_position_robo
+    robot = Robot(real_robo_pos[0], real_robo_pos[1], robot_rotation_old(robot_positions))
+
+    ball_positions = state.balls  # Corrected usage
+
+    if rotate_counter > 7:
         
-        print("Robot will find next safe point")
-        vector_to_safe_point, coord_safe_point = vector_to_closest_safe_point(real_robo_pos, shared_state.cross_middle, 60, 55)
+        print("Robot will find next safe point because it rotated too much")
+        vector_to_safe_point, coord_safe_point = vector_to_closest_safe_point(real_robo_pos, shared_state.cross_middle, 60, 65)
 
         vector = vector_to_safe_point
 
@@ -447,23 +464,6 @@ def next_command_from_state(state):
         else:
             rotate_counter = rotate_counter + 1
             return f"turn_degrees {int(turn(temp*2))} {turnSpeed}"
-
-    
-
-    robot_positions = robot_front_and_back(state.robot)
-
-    if robot_positions is None:
-        return "", None
-
-    robot_pos = robot_position(robot_positions)
-    
-    # Calculate the real-world position of the robot
-    real_robo_pos = shared_state.real_position_robo
-    robot = Robot(real_robo_pos[0], real_robo_pos[1], robot_rotation_old(robot_positions))
-
-    ball_positions = state.balls  # Corrected usage
-
-    
 
     ball_vectors = vectors_to_balls(robot, ball_positions)
     vector = [0, 0]
@@ -560,7 +560,7 @@ def next_command_from_state(state):
                     if -1 < temp < 1:
                         cross_state = 2
                         rotate_counter = 0
-                        return f"forward_degrees {int(forward(normalized_distance - 160))} {cross_speed}"
+                        return f"forward_degrees {int(forward(normalized_distance - 180))} {cross_speed}"
                     else:
                         rotate_counter = rotate_counter + 1
                         return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"
@@ -576,7 +576,7 @@ def next_command_from_state(state):
                     return f"forward_degrees {int(forward(-100))} {movementSpeed}"
             else:
                 print("Robot will find next safe point")
-                vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 55)
+                vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 65)
 
                 vector = vector_to_safe_point
 
@@ -602,7 +602,7 @@ def next_command_from_state(state):
         if vector_intersects_box(real_robo_pos, temp_vec, shared_state.cross_middle, 60, 50):
 
             print("Robot will find next safe point")
-            vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 55)
+            vector_to_safe_point, coord_safe_point = find_next_safe_point(real_robo_pos, closest_ball_coords, shared_state.cross_middle, 60, 65)
 
             vector = vector_to_safe_point
 
@@ -699,7 +699,7 @@ def next_command_from_state(state):
             global_step = 0  # Reset the state
             vectors_initialized = False  # Reset the initialization flag
             rotate_counter = 0
-            return f"forward_degrees {int(forward(-250))} {movementSpeed}"
+            return f"forward_degrees {int(forward(-200))} {movementSpeed}"
             
 
 
@@ -859,10 +859,11 @@ def calculate_distance(point1, point2):
 
 
 
-import numpy as np
+first_time_just_back = True
 
 def navigate_to_goal(robot, goal_position):
     global rotate_counter
+    global first_time_just_back
     if not goal_position:
         return "cMove 0"  # No goal position available
 
@@ -875,11 +876,27 @@ def navigate_to_goal(robot, goal_position):
     normalized_goal_distance = (840 / shared_state.half_field_pixel) * distance_to_goal
 
     print("Distance to goal: ", normalized_goal_distance)
+    robo_goal_angle = vector_between_points(shared_state.real_position_robo, shared_state.the_goal_pos)
+    robo_goal_rotate = angle_of_vector_t(-robo_goal_angle[0], -robo_goal_angle[1])
+    
+    temp = normalize_angle_difference(robot.rotation, robo_goal_rotate)
+    print("Angle to goal: ", temp)
 
-    if normalized_goal_distance <= 350:
-        print("Robot is at the goal.")
-        print()
-        return "brush 100"
+    distancer = vector_length(robo_goal_angle)
+
+    if normalized_goal_distance <= 400:
+        if -7 <= temp <= 7:
+            if first_time_just_back:
+                first_time_just_back = False
+                return f"forward_degrees {int(forward(-10))} {movementSpeed}"
+            else:
+                print("Robot is at the goal.")
+                print()
+                first_time_just_back = True
+                return "brush 100"
+        else:
+            print("Robot is not within the desired angle range.")
+            # Add any additional logic here if needed
 
     # Calculate the vectors for up/down and left/right movements
     vertical_vector = np.array([0, goal_y - robot_y])
@@ -928,16 +945,18 @@ def navigate_to_goal(robot, goal_position):
 
     # If no significant vertical movement, then move horizontally if significant distance
     if abs(horizontal_vector[0]) > 10:
-        print("hh", horizontal_vector[0])
-        aim_rotation = angle_of_vector_t(horizontal_vector[0], horizontal_vector[1])
-        distance = vector_length(horizontal_vector)
-        temp = normalize_angle_difference(robot.rotation, aim_rotation)
+        #print("hh", horizontal_vector[0])
+        #aim_rotation = angle_of_vector_t(horizontal_vector[0], horizontal_vector[1])
+        #distance = vector_length(horizontal_vector)
+        #temp = normalize_angle_difference(robot.rotation, aim_rotation)
 
-        normalized_distance = (840 / shared_state.half_field_pixel) * distance
+        #normalized_distance = (840 / shared_state.half_field_pixel) * distance
+        temp = normalize_angle_difference(robot.rotation, robo_goal_rotate)
 
+        print("VI ER HER KIG HER PLEASE: ", temp)
         if -1 < temp < 1:
-            print(f"hori move {int(normalized_distance)}")
-            return f"forward_degrees {int(forward(normalized_distance-200))} {movementSpeed}"
+            print(f"hori move {int(normalized_goal_distance)}")
+            return f"forward_degrees {int(forward(normalized_goal_distance-200))} {movementSpeed}"
         else:
             print(f"hori turn {int(temp)}")
             return f"turn_degrees {int(turn(temp * 2))} {turnSpeed}"

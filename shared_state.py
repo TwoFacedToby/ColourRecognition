@@ -40,3 +40,6 @@ cross_bottom_right = None
 
 ## temp orange
 orange_ball = None
+
+##
+the_goal_pos = None
